@@ -5,6 +5,7 @@ Authors: Terence Rokop
 -/
 module
 
+public import Geb.Mathlib.Data.FinEnum
 public import Geb.Mathlib.Data.PFunctor.Slice.W
 public import Geb.Mathlib.Data.PFunctor.Univariate.Finitary
 public import Mathlib.Logic.Equiv.Fin.Basic
@@ -81,10 +82,14 @@ transitively supplies `Mathlib.Data.Fin.Tuple.Basic`, the source of
 `![…]` notation. Neither is imported by name, so that `lake shake` does not
 report either as a redundant import.
 
-`finEnumFin` and `finEnumCompDirection` are `scoped`, and hand-built:
-mathlib's `FinEnum` instances depend on `Classical.choice`, which
-`lake lint` rejects, and an unscoped instance at the head symbol `FinEnum
-(Fin _)` would compete with `FinEnum.fin` wherever `Geb` is imported.
+`sigFinitary`'s `comp` branch resolves `FinEnum (Unit ⊕ Fin m ⊕ Fin k)`
+through the choice-free `FinEnum.unit` and `FinEnum.finSum` (two
+applications, for the outer and inner sums), and its other branches
+resolve `FinEnum (Fin n)` through the choice-free `FinEnum.finFin`.
+Those instances are `scoped` in `namespace FinEnum`; this module's
+`open scoped FinEnum` is required for them to win resolution over
+mathlib's `Classical.choice`-dependent counterparts, which `lake lint`
+rejects.
 
 ## References
 
@@ -98,6 +103,8 @@ recursion, W-type, polynomial functor
 -/
 
 namespace BellantoniCook
+
+open scoped FinEnum
 
 public section
 
@@ -161,23 +168,6 @@ index being the pair of normal and safe arities. -/
   B := Direction
   r := fun x ↦ rc x.1 x.2
   q := q
-
-/-- A choice-free `FinEnum (Fin n)`: the cardinality is `n` and the
-enumeration is the identity. `scoped`, so that it does not compete with
-mathlib's `FinEnum.fin` at the same head symbol outside this namespace. -/
-scoped instance finEnumFin (n : ℕ) :
-    FinEnum (Fin n) where
-  card := n
-  equiv := Equiv.refl _
-  decEq := inferInstance
-
-/-- A choice-free `FinEnum` for `comp`'s directions. `scoped`, for the same
-reason as `finEnumFin`. -/
-scoped instance finEnumCompDirection (m k : ℕ) :
-    FinEnum (Unit ⊕ Fin m ⊕ Fin k) where
-  card := 1 + (m + k)
-  equiv := (Equiv.sumCongr finOneEquiv.symm finSumFinEquiv).trans finSumFinEquiv
-  decEq := inferInstance
 
 /-- Every shape has finitely many directions, which is what makes
 admissibility of a `sig`-tree decidable. The branches ascribe their

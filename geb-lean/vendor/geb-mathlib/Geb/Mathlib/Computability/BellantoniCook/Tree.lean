@@ -16,10 +16,13 @@ Three expressions of `B` deciding whether a bitstring is the preorder spelling
 of a binary tree, and their correctness against the `Valid` predicate of the
 encoding. Composed with `BinTree.valid_iff_exists_print`,
 `isTreeSem_eq_singleton_iff_exists_print` states that an expression of `B`
-accepts exactly the spellings of trees. `B` is a characterization of the
-polynomial-time functions [BellantoniCook1992], which is used and not proved
-here, so the membership test lies in that class without a separate complexity
-argument.
+accepts exactly the spellings of trees. `BellantoniCook.BC` reformulates
+[BellantoniCook1992]'s class; by [HeraudNowak2011] Theorems 1 and 2, which
+relate `B` to Cobham's class in both directions, composed with Cobham's
+theorem identifying Cobham's class with the polynomial-time functions, `B`
+coincides with the polynomial-time functions. That composition is used and
+not proved here, so the membership test lies in that class without a
+separate complexity argument.
 
 The recognizer is a single right-to-left scan rather than a recursive
 descent. A descent would parse the second subtree from a remainder the
@@ -52,6 +55,8 @@ argument is what the class forbids.
   exactly the words satisfying `BinTree.Valid`.
 * `BellantoniCook.isTreeSem_eq_singleton_iff_exists_print` —
   equivalently, exactly the spellings of trees.
+* `BellantoniCook.isTreeSem_eq_ite` — the recognizer as the indicator of
+  `BinTree.Valid`.
 
 ## Implementation notes
 
@@ -84,6 +89,7 @@ type-correct at `implicit` transparency.
 ## References
 
 * [BellantoniCook1992]
+* [HeraudNowak2011]
 
 ## Tags
 
@@ -329,6 +335,21 @@ trees. -/
 theorem isTreeSem_eq_singleton_iff_exists_print (w : List Bool) :
     isTreeSem ![w] ![] = [true] ↔ ∃ t, BinTree.print t = w :=
   (isTreeSem_eq_singleton_iff_valid w).trans (BinTree.valid_iff_exists_print w)
+
+/-- The recognizer is the indicator of `BinTree.Valid`: `[true]` on a
+spelling and `[]` on anything else. `isTreeSem_eq_singleton_iff_valid`
+pins the value only where it accepts. -/
+theorem isTreeSem_eq_ite (w : List Bool) :
+    isTreeSem ![w] ![] = if BinTree.Valid w then [true] else [] := by
+  rw [isTreeSem_apply, eqOneSem_env, eqOneSem_eq, combSem_eq]
+  by_cases h : BinTree.ok w = true
+  · rw [if_pos h]
+    simp only [List.tail_replicate, List.length_replicate, Nat.add_sub_cancel]
+    by_cases hd : BinTree.depth w = 1
+    · rw [if_pos hd, if_pos ⟨h, hd⟩]
+    · rw [if_neg hd, if_neg (fun hv ↦ hd hv.2)]
+  · rw [if_neg h, if_neg (by decide : ¬ ([false] : List Bool).tail.length = 1),
+      if_neg (fun hv ↦ h hv.1)]
 
 end
 
