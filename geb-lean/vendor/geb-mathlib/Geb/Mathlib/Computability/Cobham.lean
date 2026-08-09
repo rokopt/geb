@@ -5,9 +5,9 @@ Authors: Terence Rokop
 -/
 module
 
-public import Geb.Mathlib.Computability.BellantoniCook
-public import Geb.Mathlib.Computability.Cobham
+public import Geb.Mathlib.Computability.Cobham.Basic
+public import Geb.Mathlib.Computability.Cobham.Tree
 
 /-!
-# Computability — index
+# Cobham — index
 -/

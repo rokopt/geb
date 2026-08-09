@@ -35,6 +35,7 @@ direction a single right-to-left pass carrying a counter can scan.
   zero.
 * `BinTree.ok` — every node bit is read at depth at least two.
 * `BinTree.Valid` — the two conditions together.
+* `DecidablePred BinTree.Valid` — the instance deciding it.
 
 ## Main statements
 
@@ -48,6 +49,8 @@ direction a single right-to-left pass carrying a counter can scan.
 * `BinTree.valid_iff_exists_print` — the valid words are exactly the
   spellings.
 * `BinTree.valid_iff_isSome_parse` — `parse` decides `Valid`.
+* `BinTree.depth_le_length` — the stack depth never exceeds the word
+  length.
 
 ## Implementation notes
 
@@ -133,6 +136,19 @@ a node bit pops two and pushes one. Subtraction is truncated at zero;
 @[simp] theorem depth_cons_true (v : List Bool) :
     depth (true :: v) = depth v - 1 := rfl
 
+/-- The stack depth never exceeds the word length. A leaf bit raises the
+depth by one and consumes one bit; a node bit lowers it, the subtraction
+being truncated at zero. -/
+theorem depth_le_length (w : List Bool) : depth w ≤ w.length :=
+  List.rec (motive := fun u ↦ depth u ≤ u.length) (Nat.le_refl 0)
+    (fun b v ih ↦ by
+      cases b
+      · rw [depth_cons_false, List.length_cons]
+        omega
+      · rw [depth_cons_true, List.length_cons]
+        omega)
+    w
+
 /-- Every node bit is read at a depth of at least two, so that popping
 two operands is defined. This is strictly stronger than absence of
 truncation: `[true, false]` truncates nowhere, since `depth [false] = 1`
@@ -151,6 +167,11 @@ and `1 - 1` is exact, yet fails `ok`. -/
 /-- A bitstring spells a tree: `ok` holds of it, and it leaves a single
 tree on the stack. The tree is unique, by `print_injective`. -/
 @[expose] def Valid (w : List Bool) : Prop := ok w = true ∧ depth w = 1
+
+/-- `Valid` is a conjunction of two decidable equations, so membership is
+decidable. Instance search does not unfold the `def`, so the instance is
+supplied rather than inferred. -/
+instance : DecidablePred Valid := fun _ ↦ inferInstanceAs (Decidable (_ ∧ _))
 
 /-- A spelling's length is the tree's node count, so the input length is
 fuel enough for `parseAux` to read anything `print` emits. -/
