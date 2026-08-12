@@ -1,5 +1,26 @@
+diff --git a/vendor/geb-mathlib/Geb/Internal/CanonicalSExpr.lean b/vendor/geb-mathlib/Geb/Internal/CanonicalSExpr.lean
+index 60ce9f4..6bf7832 100644
+--- a/vendor/geb-mathlib/Geb/Internal/CanonicalSExpr.lean
++++ b/vendor/geb-mathlib/Geb/Internal/CanonicalSExpr.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.ConcreteSyntax
+@@ -363,7 +364,7 @@ theorem parseAux_print {k : Nat} (r : Rose k) :
+         simp only [parseStep, List.append_assoc, List.singleton_append,
+           Csexp.readVerbatim_append, Csexp.digitsVal_decOf, Fin.is_lt,
+           parseChildren_print _ _ _ _ hchild hfuel, Option.map_some,
+-          ite_true, dite_eq_left, Fin.eta, ofList_ofFn]) r
++          ite_true, dif_pos, Fin.eta, ofList_ofFn]) r
+ 
+ /-- The retraction law for the rose spelling: printing a rose tree and
+ parsing the result returns that tree. -/
 diff --git a/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean b/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean
-index c40e5fe..6c08797 100644
+index 131bc16..6c08797 100644
 --- a/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean
 +++ b/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean
 @@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
@@ -19,6 +40,15 @@ index c40e5fe..6c08797 100644
  /-- An annotated Geb document. -/
  abbrev Doc (k : Nat) : Type := Tree k Ann
  
+@@ -497,7 +500,7 @@ theorem parseChildren_succ_cons {k : Nat}
+     parseChildren childParse (f + 1) (c :: cs)
+       = (childParse (c :: cs)).bind fun p ↦
+           (parseChildren childParse f p.2).map fun q ↦ (p.1 :: q.1, q.2) :=
+-  ite_eq_right h
++  if_neg h
+ 
+ end Rose
+ 
 @@ -549,7 +552,7 @@ back is the identity on `Ast k`. -/
  theorem ofRose_toRose {k : Nat} (a : Ast k) : ofRose a.toRose = a :=
    ind (motive := fun a ↦ ofRose a.toRose = a)
@@ -28,6 +58,43 @@ index c40e5fe..6c08797 100644
  
  /-- The image of a left spine under `toRose`: the fold that `ofRose`
  performs on a node's children is undone one child at a time, from the
+@@ -719,15 +722,15 @@ theorem digitsVal_decOf (n : Nat) : digitsVal (decOf n) = some n := by
+   · have hlt : ∀ d ∈ (digitsLE n).reverse, d < 10 := by
+       intro d hd
+       exact digitsLE_lt n d (List.mem_reverse.mp hd)
+-    rw [ite_eq_right h, mapM_charDigit_digitChar _ hlt]
++    rw [if_neg h, mapM_charDigit_digitChar _ hlt]
+     simp [ofLE_digitsLE]
+ 
+ theorem decOf_all_digits (n : Nat) : ∀ c ∈ decOf n, (charDigit c).isSome := by
+   intro c hc
+   unfold decOf at hc
+   by_cases h : n = 0
+-  · subst h; rw [ite_eq_left rfl, List.mem_singleton] at hc; subst hc; decide
+-  · rw [ite_eq_right h] at hc
++  · subst h; rw [if_pos rfl, List.mem_singleton] at hc; subst hc; decide
++  · rw [if_neg h] at hc
+     obtain ⟨d, hd, rfl⟩ := List.mem_map.mp hc
+     have : d < 10 := digitsLE_lt n d (List.mem_reverse.mp hd)
+     simp [charDigit_digitChar d this]
+@@ -736,7 +739,7 @@ theorem decOf_ne_nil (n : Nat) : decOf n ≠ [] := by
+   unfold decOf
+   by_cases h : n = 0
+   · subst h; simp
+-  · rw [ite_eq_right h]
++  · rw [if_neg h]
+     simp [digitsLE_ne_nil h]
+ 
+ /-! ### Reading a decimal prefix -/
+@@ -909,7 +912,7 @@ theorem parseAst_printAst {k : Nat} (a : Ast k) :
+           List.append_assoc, List.nil_append]
+         rw [readVerbatim_append]
+         have hne : forkTok ≠ leafTok := by decide
+-        simp only [ite_eq_right hne]
++        simp only [if_neg hne]
+         rw [ihl f _ hl]
+         -- reduce the match on the `some` just produced, exposing the second child
+         simp only []
 diff --git a/vendor/geb-mathlib/Geb/Internal/PresheafIRProto/Basic.lean b/vendor/geb-mathlib/Geb/Internal/PresheafIRProto/Basic.lean
 index b4e0cc6..cbb2cdf 100644
 --- a/vendor/geb-mathlib/Geb/Internal/PresheafIRProto/Basic.lean
@@ -105,6 +172,81 @@ index d958e4f..0919ac2 100644
    left_inv _ := rfl
    right_inv _ := rfl
  
+diff --git a/vendor/geb-mathlib/Geb/Internal/ReadableSExpr.lean b/vendor/geb-mathlib/Geb/Internal/ReadableSExpr.lean
+index 5031b8c..229b1f3 100644
+--- a/vendor/geb-mathlib/Geb/Internal/ReadableSExpr.lean
++++ b/vendor/geb-mathlib/Geb/Internal/ReadableSExpr.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.ConcreteSyntax
+@@ -194,7 +195,7 @@ theorem skipWs_decOf_append (n : Nat) (rest : List Char) :
+     skipWs (Csexp.decOf n ++ rest) = Csexp.decOf n ++ rest := by
+   obtain ⟨c, cs, hc⟩ := decOf_eq_cons n
+   rw [hc, List.cons_append, skipWs_cons,
+-    ite_eq_right (by simp [digit_not_ws (decOf_head_digit n c cs hc)])]
++    if_neg (by simp [digit_not_ws (decOf_head_digit n c cs hc)])]
+ 
+ /-! ## The head of a spelling -/
+ 
+@@ -220,7 +221,7 @@ theorem skipWs_print_append {k : Nat} (r : Rose k) (rest : List Char) :
+     rcases hd with rfl | hd
+     · exact open_not_ws
+     · exact digit_not_ws hd
+-  rw [hc, List.cons_append, skipWs_cons, ite_eq_right (by simp [hw])]
++  rw [hc, List.cons_append, skipWs_cons, if_neg (by simp [hw])]
+ 
+ /-- The `rest = []` instance of `skipWs_print_append`, which is the form
+ the entry point uses. -/
+@@ -317,7 +318,7 @@ theorem parseStep_other (k : Nat)
+         | some (m, cs1) =>
+           if h : m < k then some (Rose.node ⟨m, h⟩ Fin.elim0, skipWs cs1)
+           else none
+-        | none => none := ite_eq_right hc
++        | none => none := if_neg hc
+ 
+ /-! ## The retraction law -/
+ 
+@@ -348,7 +349,7 @@ theorem parseChildren_print {k : Nat}
+     (fun fuel rest _ hfuel ↦ by
+       obtain ⟨g, rfl⟩ : ∃ g, fuel = g + 1 := ⟨fuel - 1, by omega⟩
+       rw [List.map_nil, List.flatten_nil, List.nil_append, skipWs_cons,
+-        ite_eq_right (by simp [close_not_ws]), Rose.parseChildren_succ_close])
++        if_neg (by simp [close_not_ws]), Rose.parseChildren_succ_close])
+     (fun t ts ih fuel rest hchild hfuel ↦ by
+       obtain ⟨g, rfl⟩ : ∃ g, fuel = g + 1 := ⟨fuel - 1, by omega⟩
+       obtain ⟨c, cs, hc, hd⟩ := print_head t
+@@ -360,7 +361,7 @@ theorem parseChildren_print {k : Nat}
+       have hcons : ∀ u : List Char, print t ++ u = c :: (cs ++ u) := fun u ↦ by
+         rw [hc, List.cons_append]
+       rw [List.map_cons, List.flatten_cons, List.append_assoc, List.cons_append,
+-        skipWs_cons, ite_eq_left (by simp [space_is_ws]), skipWs_print_append, hcons,
++        skipWs_cons, if_pos (by simp [space_is_ws]), skipWs_print_append, hcons,
+         Rose.parseChildren_succ_cons _ _ _ _ hne, ← hcons,
+         hchild t (by simp) _ (block_append_head_not_digit ts rest),
+         Option.bind_some, ih g rest (fun x hx ↦ hchild x (by simp [hx])) hlt,
+@@ -397,7 +398,7 @@ theorem parseAux_print {k : Nat} (r : Rose k) :
+           ← List.cons_append, ← hc, readNat_append _ _ hrest]
+         -- reduce the match on the `some` just produced, exposing the label-bound check
+         simp only []
+-        rw [dite_eq_left i.isLt]
++        rw [dif_pos i.isLt]
+         exact congrArg (fun t ↦ some (t, skipWs rest))
+           (congrArg (Rose.node i) (funext fun j ↦ j.elim0))
+       | succ m =>
+@@ -442,7 +443,7 @@ theorem parseAux_print {k : Nat} (r : Rose k) :
+             readNat_append _ _ (block_append_head_not_digit (List.ofFn ch) rest)]
+           -- reduce the match on the `some` just produced, exposing the label-bound check
+           simp only []
+-          rw [dite_eq_left i.isLt,
++          rw [dif_pos i.isLt,
+             parseChildren_print _ (List.ofFn ch) (g + 1) rest hchild hfuel,
+             Option.map_some, Rose.ofList_ofFn]) r
+ 
 diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/ElementaryTopos.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/ElementaryTopos.lean
 index 970932c..df65d6d 100644
 --- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/ElementaryTopos.lean
@@ -143,6 +285,115 @@ index 970932c..df65d6d 100644
  
  /-- The chosen initial object is initial. -/
  def isInitial : IsInitial (initialCocone (C := C)).cocone.pt :=
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Basic.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Basic.lean
+index c481d79..3c8795f 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Basic.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Basic.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ /-!
+@@ -100,13 +101,13 @@ def embOf {objCount : Nat} {nonIdCount : Fin objCount → Fin objCount → Nat}
+ theorem homCountOf_of_ne {objCount : Nat}
+     {nonIdCount : Fin objCount → Fin objCount → Nat} {i j : Fin objCount} (hij : ¬ i = j) :
+     homCountOf objCount nonIdCount i j = nonIdCount i j :=
+-  (congrArg (nonIdCount i j + ·) (ite_eq_right hij)).trans (Nat.add_zero _)
++  (congrArg (nonIdCount i j + ·) (if_neg hij)).trans (Nat.add_zero _)
+ 
+ /-- On the diagonal it contributes one. -/
+ theorem homCountOf_diag {objCount : Nat}
+     {nonIdCount : Fin objCount → Fin objCount → Nat} (i : Fin objCount) :
+     homCountOf objCount nonIdCount i i = nonIdCount i i + 1 :=
+-  congrArg (nonIdCount i i + ·) (ite_eq_left rfl)
++  congrArg (nonIdCount i i + ·) (if_pos rfl)
+ 
+ /-- An index at or beyond the client's count exists only on the
+ diagonal: off the diagonal the conditional in `homCountOf` contributes
+@@ -218,7 +219,7 @@ theorem id_comp (S : FinCat) {i k : Fin S.objCount} (g : S.Mor i k) :
+     S.compTotal (S.id i) g = g := by
+   have hlt : ¬ ((S.id i).val < S.nonIdCount i i) := Nat.lt_irrefl _
+   unfold compTotal compTotalOf
+-  rw [dite_eq_right hlt]
++  rw [dif_neg hlt]
+   rfl
+ 
+ /-- The reserved identity is a right identity for the total
+@@ -228,9 +229,9 @@ theorem comp_id (S : FinCat) {i j : Fin S.objCount} (f : S.Mor i j) :
+   have hlt : ¬ ((S.id j).val < S.nonIdCount j j) := Nat.lt_irrefl _
+   unfold compTotal compTotalOf
+   by_cases hf : f.val < S.nonIdCount i j
+-  · rw [dite_eq_left hf, dite_eq_right hlt]
++  · rw [dif_pos hf, dif_neg hlt]
+     rfl
+-  · rw [dite_eq_right hf]
++  · rw [dif_neg hf]
+     exact Fin.ext (val_eq_of_le f (Nat.not_lt.mp hf)).symm
+ 
+ /-- The specification with no objects. `deriving Inhabited` fails,
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom.lean
+index 37bc146..a71b008 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.CategoryTheory.FinCat.Category
+@@ -168,7 +169,7 @@ theorem mapTotal_emb (F : Hom S T) {i j : Fin S.objCount}
+     (f : Fin (S.nonIdCount i j)) : F.mapTotal (S.emb f) = F.map i j f := by
+   have hlt : (S.emb f).val < S.nonIdCount i j := f.isLt
+   unfold Hom.mapTotal mapTotalOf
+-  rw [dite_eq_left hlt]
++  rw [dif_pos hlt]
+   rfl
+ 
+ /-- The total map preserves the reserved identity. -/
+@@ -176,7 +177,7 @@ theorem mapTotal_id (F : Hom S T) (i : Fin S.objCount) :
+     F.mapTotal (S.id i) = T.id (F.objMap i) := by
+   have hlt : ¬ ((S.id i).val < S.nonIdCount i i) := Nat.lt_irrefl _
+   unfold Hom.mapTotal mapTotalOf
+-  rw [dite_eq_right hlt]
++  rw [dif_neg hlt]
+ 
+ /-- The total map preserves the total composition, on all pairs of
+ morphisms. -/
+@@ -201,9 +202,9 @@ theorem id_mapTotalOf (S : FinCat) {i j : Fin S.objCount} (x : S.Mor i j) :
+     mapTotalOf (fun i ↦ i) (fun _ _ f ↦ S.emb f) x = x := by
+   unfold mapTotalOf
+   by_cases hx : x.val < S.nonIdCount i j
+-  · rw [dite_eq_left hx]
++  · rw [dif_pos hx]
+     rfl
+-  · rw [dite_eq_right hx]
++  · rw [dif_neg hx]
+     have hij := S.eq_of_nonIdCount_le x (Nat.not_lt.mp hx)
+     subst hij
+     exact Fin.ext (S.val_eq_of_nonIdCount_le x (Nat.not_lt.mp hx)).symm
+@@ -217,14 +218,14 @@ theorem comp_mapTotalOf {S T U : FinCat} (F : Hom S T) (G : Hom T U)
+   by_cases hx : x.val < S.nonIdCount i j
+   · have h1 : mapTotalOf (fun i ↦ G.objMap (F.objMap i))
+         (fun i j f ↦ G.mapTotal (F.map i j f)) x = G.mapTotal (F.map i j ⟨x.val, hx⟩) :=
+-      dite_eq_left hx
+-    have h2 : F.mapTotal x = F.map i j ⟨x.val, hx⟩ := dite_eq_left hx
++      dif_pos hx
++    have h2 : F.mapTotal x = F.map i j ⟨x.val, hx⟩ := dif_pos hx
+     rw [h1, h2]
+   · have hij := S.eq_of_nonIdCount_le x (Nat.not_lt.mp hx)
+     subst hij
+     rw [show x = S.id i from Fin.ext (S.val_eq_of_nonIdCount_le x (Nat.not_lt.mp hx)),
+       F.mapTotal_id, G.mapTotal_id]
+-    exact dite_eq_right (Nat.lt_irrefl _)
++    exact dif_neg (Nat.lt_irrefl _)
+ 
+ /-- The identity 1-cell. -/
+ protected def id (S : FinCat) : Hom S S where
 diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom2.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom2.lean
 index 6249978..f5f05ad 100644
 --- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/FinCat/Hom2.lean
@@ -236,6 +487,177 @@ index f9e2f2b..c3b1f96 100644
    exact key g (X ◁ f ≫ g) fun i ↦ hten i
  
  /-- `FinSetSkel` is monoidal closed: the exponential of the object of
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean b/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean
+index 6ed36e0..e0bce89 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Computability.BellantoniCook.Basic
+@@ -304,7 +305,7 @@ theorem eqOneSem_eq (u : List Bool) :
+   | b :: c :: v =>
+     cases b <;> cases c <;>
+       (change ([] : List Bool) = _
+-       rw [ite_eq_right (by simp only [List.length_cons]; omega)])
++       rw [if_neg (by simp only [List.length_cons]; omega)])
+ 
+ /-- One step of the recognizer: the one-test on the scan's predecessor.
+ The scan's value is `[false]` on failure, whose predecessor is empty, and
+@@ -320,16 +321,16 @@ theorem isTreeSem_eq_singleton_iff_valid (w : List Bool) :
+   rw [isTreeSem_apply, eqOneSem_env]
+   simp only [eqOneSem_eq, combSem_eq]
+   by_cases h : ok w = true
+-  · rw [ite_eq_left h]
++  · rw [if_pos h]
+     simp only [List.tail_replicate, List.length_replicate, Nat.add_sub_cancel]
+     by_cases hd : depth w = 1
+-    · rw [ite_eq_left hd]
++    · rw [if_pos hd]
+       exact ⟨fun _ ↦ (valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩, fun _ ↦ rfl⟩
+-    · rw [ite_eq_right hd]
++    · rw [if_neg hd]
+       refine ⟨fun hw ↦ absurd hw (by nofun), ?_⟩
+       rintro hv
+       exact absurd ((valid_iff_ok_and_depth_eq_one w).mp hv).2 hd
+-  · rw [ite_eq_right h, ite_eq_right (by decide : ¬ ([false] : List Bool).tail.length = 1)]
++  · rw [if_neg h, if_neg (by decide : ¬ ([false] : List Bool).tail.length = 1)]
+     refine ⟨fun hw ↦ absurd hw (by nofun), ?_⟩
+     rintro hv
+     exact absurd ((valid_iff_ok_and_depth_eq_one w).mp hv).1 h
+@@ -347,14 +348,14 @@ theorem isTreeSem_eq_ite (w : List Bool) :
+     isTreeSem ![w] ![] = if binRanked.Valid w then [true] else [] := by
+   rw [isTreeSem_apply, eqOneSem_env, eqOneSem_eq, combSem_eq]
+   by_cases h : ok w = true
+-  · rw [ite_eq_left h]
++  · rw [if_pos h]
+     simp only [List.tail_replicate, List.length_replicate, Nat.add_sub_cancel]
+     by_cases hd : depth w = 1
+-    · rw [ite_eq_left hd, ite_eq_left ((valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩)]
+-    · rw [ite_eq_right hd,
+-        ite_eq_right fun hv ↦ hd ((valid_iff_ok_and_depth_eq_one w).mp hv).2]
+-  · rw [ite_eq_right h, ite_eq_right (by decide : ¬ ([false] : List Bool).tail.length = 1),
+-      ite_eq_right fun hv ↦ h ((valid_iff_ok_and_depth_eq_one w).mp hv).1]
++    · rw [if_pos hd, if_pos ((valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩)]
++    · rw [if_neg hd,
++        if_neg fun hv ↦ hd ((valid_iff_ok_and_depth_eq_one w).mp hv).2]
++  · rw [if_neg h, if_neg (by decide : ¬ ([false] : List Bool).tail.length = 1),
++      if_neg fun hv ↦ h ((valid_iff_ok_and_depth_eq_one w).mp hv).1]
+ 
+ end
+ 
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/RankedTree.lean b/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/RankedTree.lean
+index d844385..74afec4 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/RankedTree.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/RankedTree.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Computability.Cobham.Cases
+@@ -501,8 +502,8 @@ theorem stepWord_acceptTest (R : RankedAlphabet) (u : List Bool) :
+   change casesSem (R.width + 3) _ ![u, u] = _
+   rw [casesSem_eq]
+   by_cases hb : List.ofFn (bits (R.width + 3) u) = acceptWord R ++ [false]
+-  · rw [ite_eq_left hb, ite_eq_left hb, stepWord_constAtOf]
+-  · rw [ite_eq_right hb, ite_eq_right hb, stepWord_constAtOf]
++  · rw [if_pos hb, if_pos hb, stepWord_constAtOf]
++  · rw [if_neg hb, if_neg hb, stepWord_constAtOf]
+ 
+ /-- The raw tree of the recognizer: the verdict test on the scan. -/
+ @[expose] def isRankedRaw (R : RankedAlphabet) : sig.toPFunctor.W :=
+@@ -558,17 +559,17 @@ theorem isRankedSem_eq_ite (R : RankedAlphabet) (w : List Bool) :
+     (length_buf_scanFinal_lt R w)
+   rw [isRankedSem_apply, rankedSem_eq, stepWord_acceptTest]
+   by_cases hv : R.Valid w
+-  · rw [ite_eq_left hv, ite_eq_left (hsep.mpr ((valid_iff_scanFinal R w).mp hv))]
+-  · rw [ite_eq_right hv, ite_eq_right fun hw ↦ hv ((valid_iff_scanFinal R w).mpr (hsep.mp hw))]
++  · rw [if_pos hv, if_pos (hsep.mpr ((valid_iff_scanFinal R w).mp hv))]
++  · rw [if_neg hv, if_neg fun hw ↦ hv ((valid_iff_scanFinal R w).mpr (hsep.mp hw))]
+ 
+ /-- The recognizer accepts exactly the words spelling a term. -/
+ theorem isRankedSem_eq_singleton_iff_valid (R : RankedAlphabet) (w : List Bool) :
+     isRankedSem R ![w] = [true] ↔ R.Valid w := by
+   rw [isRankedSem_eq_ite]
+   by_cases hv : R.Valid w
+-  · rw [ite_eq_left hv]
++  · rw [if_pos hv]
+     exact ⟨fun _ ↦ hv, fun _ ↦ rfl⟩
+-  · rw [ite_eq_right hv]
++  · rw [if_neg hv]
+     exact ⟨fun hw ↦ absurd hw (by nofun), fun h ↦ absurd h hv⟩
+ 
+ /-- At the two-symbol alphabet the generic recognizer accepts the language the
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/Tree.lean b/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/Tree.lean
+index a97d8df..4101aaf 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/Tree.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/Computability/Cobham/Tree.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Computability.Cobham.Basic
+@@ -440,7 +441,7 @@ theorem length_combSem_le (u : List Bool) :
+   rw [← combSem_def, combSem_eq]
+   cases ok u
+   · exact Nat.le_add_left 1 u.length
+-  · rw [ite_eq_left rfl, List.length_replicate]
++  · rw [if_pos rfl, List.length_replicate]
+     exact Nat.succ_le_succ (depth_le_length u)
+ 
+ /-- The stack depth and the underflow verdict of a bitstring in one value, as
+@@ -530,7 +531,7 @@ theorem eqOneSem_eq (u : List Bool) :
+   | b :: c :: v =>
+     cases b <;> cases c <;>
+       (change ([] : List Bool) = _
+-       rw [ite_eq_right (by simp only [List.length_cons]; omega)])
++       rw [if_neg (by simp only [List.length_cons]; omega)])
+ 
+ /-- The raw tree of the recognizer: the one-test on the scan's predecessor. -/
+ @[expose] def isTreeRaw : sig.toPFunctor.W :=
+@@ -587,14 +588,14 @@ theorem isTreeSem_eq_ite (w : List Bool) :
+     isTreeSem ![w] = if binRanked.Valid w then [true] else [] := by
+   rw [isTreeSem_apply, eqOneSem_env, eqOneSem_eq, combSem_eq]
+   by_cases h : ok w = true
+-  · rw [ite_eq_left h]
++  · rw [if_pos h]
+     simp only [List.tail_replicate, List.length_replicate, Nat.add_sub_cancel]
+     by_cases hd : depth w = 1
+-    · rw [ite_eq_left hd, ite_eq_left ((valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩)]
+-    · rw [ite_eq_right hd,
+-        ite_eq_right fun hv ↦ hd ((valid_iff_ok_and_depth_eq_one w).mp hv).2]
+-  · rw [ite_eq_right h, ite_eq_right (by decide : ¬ ([false] : List Bool).tail.length = 1),
+-      ite_eq_right fun hv ↦ h ((valid_iff_ok_and_depth_eq_one w).mp hv).1]
++    · rw [if_pos hd, if_pos ((valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩)]
++    · rw [if_neg hd,
++        if_neg fun hv ↦ hd ((valid_iff_ok_and_depth_eq_one w).mp hv).2]
++  · rw [if_neg h, if_neg (by decide : ¬ ([false] : List Bool).tail.length = 1),
++      if_neg fun hv ↦ h ((valid_iff_ok_and_depth_eq_one w).mp hv).1]
+ 
+ /-- The recognizer accepts exactly the words the two-symbol alphabet's scan
+ accepts. -/
+@@ -602,9 +603,9 @@ theorem isTreeSem_eq_singleton_iff_valid (w : List Bool) :
+     isTreeSem ![w] = [true] ↔ binRanked.Valid w := by
+   rw [isTreeSem_eq_ite]
+   by_cases h : binRanked.Valid w
+-  · rw [ite_eq_left h]
++  · rw [if_pos h]
+     exact ⟨fun _ ↦ h, fun _ ↦ rfl⟩
+-  · rw [ite_eq_right h]
++  · rw [if_neg h]
+     exact ⟨fun hw ↦ absurd hw (by nofun), fun hv ↦ absurd hv h⟩
+ 
+ /-- The recognizer accepts exactly the preorder spellings of the two-symbol
 diff --git a/vendor/geb-mathlib/Geb/Mathlib/Data/PFunctor/IndRec/Basic.lean b/vendor/geb-mathlib/Geb/Mathlib/Data/PFunctor/IndRec/Basic.lean
 index 44ebba7..b6df37e 100644
 --- a/vendor/geb-mathlib/Geb/Mathlib/Data/PFunctor/IndRec/Basic.lean
@@ -873,6 +1295,110 @@ index db2075e..f713039 100644
    (WType.equivSigma P.B).symm.toIso
  
  /-- The isomorphism's forward map is the algebra's structure map. -/
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Code.lean b/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Code.lean
+index 38830a9..68ee2ea 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Code.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Code.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Data.Tree.Ranked.Basic
+@@ -113,7 +114,7 @@ theorem decodeBits_code (R : RankedAlphabet) (i : Fin R.card) :
+ /-- A block spelling a symbol has that symbol's arity. -/
+ theorem arOf_decodeBits_code (R : RankedAlphabet) (i : Fin R.card) :
+     R.arOf (decodeBits (R.code i)) = some (R.arity i) := by
+-  rw [decodeBits_code, arOf, dite_eq_left i.isLt]
++  rw [decodeBits_code, arOf, dif_pos i.isLt]
+ 
+ /-- The `n`th bit of a block is the `n`th bit of the symbol's index. -/
+ theorem getElem_code_eq (R : RankedAlphabet) (i : Fin R.card) (n : ℕ)
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Preorder.lean b/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Preorder.lean
+index 7b84564..2aa7b87 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Preorder.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/Data/Tree/Ranked/Preorder.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Data.Tree.Ranked.Code
+@@ -134,6 +135,7 @@ theorem length_spell (R : RankedAlphabet) (t : R.Term) :
+     (R.spell t).length = R.width * t.size :=
+   Term.induction (motive := fun t ↦ (R.spell t).length = R.width * t.size)
+     (fun i ch ih ↦ by
++      beta_reduce
+       rw [spell_mk, List.length_append, length_code, size_mk, Nat.mul_add, Nat.mul_one,
+         Nat.add_comm (R.width * _) R.width]
+       congr 1
+@@ -214,7 +216,7 @@ theorem decodeBlock_code_append (R : RankedAlphabet) (i : Fin R.card)
+     rw [List.length_append, length_code]
+     omega
+   simp only [decodeBlock, htake, hdrop,
+-    dite_eq_left (show decodeBits (R.code i) < R.card ∧ R.width ≤ (R.code i ++ rest).length
++    dif_pos (show decodeBits (R.code i) < R.card ∧ R.width ≤ (R.code i ++ rest).length
+       from ⟨by rw [decodeBits_code]; exact i.isLt, hlen⟩)]
+   congr 1
+   exact Prod.ext (Fin.val_injective (decodeBits_code R i)) rfl
+@@ -277,9 +279,10 @@ theorem parse_spell (R : RankedAlphabet) (t : R.Term) :
+   rw [List.append_nil] at h
+   rw [parse, h]
+ 
+-/-- The encoding and its descent as a `Computability.Encoding`, whose three
+-fields they are. -/
+-@[expose] def encoding (R : RankedAlphabet) : Computability.Encoding R.Term Bool where
++/-- The encoding and its descent as a `Computability.Encoding` over the
++alphabet `Bool`, whose remaining three fields they are. -/
++@[expose] def encoding (R : RankedAlphabet) : Computability.Encoding R.Term where
++  Γ := Bool
+   encode := R.spell
+   decode := R.parse
+   decode_encode := parse_spell R
+@@ -581,11 +584,11 @@ theorem length_buf_scanFinal_of_live (R : RankedAlphabet) :
+       rcases hcase with ⟨hne, heq⟩ | ⟨r, hlen, _, _, heq⟩
+       · simp only [heq, List.length_cons] at hne ⊢
+         rw [ihv] at hne
+-        rw [ihv, add_one_mod _ _ R.width_pos, ite_eq_right hne]
++        rw [ihv, add_one_mod _ _ R.width_pos, if_neg hne]
+       · simp only [List.length_cons] at hlen
+         rw [ihv] at hlen
+         simp only [heq, List.length_nil, List.length_cons]
+-        rw [add_one_mod _ _ R.width_pos, ite_eq_left hlen])
++        rw [add_one_mod _ _ R.width_pos, if_pos hlen])
+ 
+ /-- The incomplete block never fills, whether or not the scan has failed.
+ Stated unconditionally, which is the form a bitstring layout of the state
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean b/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean
+index 9ea86d0..9f472c3 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Mathlib.Data.W.Basic
+@@ -144,11 +145,11 @@ theorem beq_eq_true_iff {α : Type uA} {β : α → Type uB} [DecidableEq α]
+         match ‹DecidableEq α› a a' with
+         | isTrue h => by
+             subst h
+-            rw [beq_mk, dite_eq_left rfl, decide_eq_true_iff]
++            rw [beq_mk, dif_pos rfl, decide_eq_true_iff]
+             exact ⟨fun hb ↦ congrArg (mk a) (funext fun b ↦ (ih b (f' b)).mp (hb b)),
+               fun he b ↦ (ih b (f' b)).mpr (congrFun (eq_of_heq (mk.inj he).2) b)⟩
+         | isFalse h => by
+-            rw [beq_mk, dite_eq_right h]
++            rw [beq_mk, dif_neg h]
+             exact ⟨fun hb ↦ Bool.noConfusion hb, fun he ↦ absurd (mk.inj he).1 h⟩)
+     s t
+ 
 diff --git a/vendor/geb-mathlib/Geb.lean b/vendor/geb-mathlib/Geb.lean
 index 4d787e5..93b450b 100644
 --- a/vendor/geb-mathlib/Geb.lean

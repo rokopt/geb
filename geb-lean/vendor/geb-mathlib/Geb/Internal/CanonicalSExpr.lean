@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Terence Rokop
 -/
+-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
 public import Geb.Internal.ConcreteSyntax
@@ -363,7 +364,7 @@ theorem parseAux_print {k : Nat} (r : Rose k) :
         simp only [parseStep, List.append_assoc, List.singleton_append,
           Csexp.readVerbatim_append, Csexp.digitsVal_decOf, Fin.is_lt,
           parseChildren_print _ _ _ _ hchild hfuel, Option.map_some,
-          if_true, dif_pos, Fin.eta, ofList_ofFn]) r
+          ite_true, dif_pos, Fin.eta, ofList_ofFn]) r
 
 /-- The retraction law for the rose spelling: printing a rose tree and
 parsing the result returns that tree. -/

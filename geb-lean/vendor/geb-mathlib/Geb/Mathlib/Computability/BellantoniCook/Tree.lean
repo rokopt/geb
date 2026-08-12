@@ -3,26 +3,27 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Terence Rokop
 -/
+-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
 public import Geb.Mathlib.Computability.BellantoniCook.Basic
 public import Geb.Mathlib.Data.PFunctor.Slice.Decidable
-public import Geb.Mathlib.Data.Tree.Preorder
+public import Geb.Mathlib.Data.Tree.Ranked.Binary
 
 /-!
 # A tree recognizer in the Bellantoni-Cook class
 
 Three expressions of `B` deciding whether a bitstring is the preorder spelling
 of a binary tree, and their correctness against the `Valid` predicate of the
-encoding. Composed with `BinTree.valid_iff_exists_print`,
-`isTreeSem_eq_singleton_iff_exists_print` states that an expression of `B`
-accepts exactly the spellings of trees. `BellantoniCook.BC` reformulates
-[BellantoniCook1992]'s class; by [HeraudNowak2011] Theorems 1 and 2, which
-relate `B` to Cobham's class in both directions, composed with Cobham's
-theorem identifying Cobham's class with the polynomial-time functions, `B`
-coincides with the polynomial-time functions. That composition is used and
-not proved here, so the membership test lies in that class without a
-separate complexity argument.
+encoding. Composed with `RankedAlphabet.valid_iff_exists_spell`,
+`isTreeSem_eq_singleton_iff_exists_spell` states that an expression of `B`
+accepts exactly the spellings of `binRanked`'s terms. `BellantoniCook.BC`
+reformulates [BellantoniCook1992]'s class; by [HeraudNowak2011] Theorems 1 and
+2, which relate `B` to Cobham's class in both directions, composed with
+Cobham's theorem identifying Cobham's class with the polynomial-time
+functions, `B` coincides with the polynomial-time functions. That composition
+is used and not proved here, so the membership test lies in that class
+without a separate complexity argument.
 
 The recognizer is a single right-to-left scan rather than a recursive
 descent. A descent would parse the second subtree from a remainder the
@@ -46,17 +47,17 @@ argument is what the class forbids.
 
 ## Main statements
 
-* `BellantoniCook.combSem_eq` — the scan computes `BinTree.depth` in
-  unary, offset by one, while `BinTree.ok` holds, and `[false]` once it
-  has failed.
+* `BellantoniCook.combSem_eq` — the scan computes
+  `RankedAlphabet.Binary.depth` in unary, offset by one, while
+  `RankedAlphabet.Binary.ok` holds, and `[false]` once it has failed.
 * `BellantoniCook.eqOneSem_eq` — `eqOne` accepts exactly the bitstrings
   of length one.
 * `BellantoniCook.isTreeSem_eq_singleton_iff_valid` — `isTree` accepts
-  exactly the words satisfying `BinTree.Valid`.
-* `BellantoniCook.isTreeSem_eq_singleton_iff_exists_print` —
-  equivalently, exactly the spellings of trees.
+  exactly the words `binRanked`'s scan accepts.
+* `BellantoniCook.isTreeSem_eq_singleton_iff_exists_spell` —
+  equivalently, exactly the spellings of `binRanked`'s terms.
 * `BellantoniCook.isTreeSem_eq_ite` — the recognizer as the indicator of
-  `BinTree.Valid`.
+  `binRanked`'s scan.
 
 ## Implementation notes
 
@@ -98,6 +99,8 @@ recursion, binary tree, preorder, recognizer
 -/
 
 namespace BellantoniCook
+
+open RankedAlphabet.Binary
 
 public section
 
@@ -154,7 +157,7 @@ empty. -/
       ![predPredRaw, falseAtRaw 1 1, decRaw, decRaw])
 
 /-- The raw tree of the scan. The base is `[true]`, the empty bitstring
-having depth zero and satisfying `ok`. -/
+having depth zero and satisfying `RankedAlphabet.Binary.ok`. -/
 @[expose] def combRaw : sig.toPFunctor.W :=
   WType.mk (.safeRec 0 0) ![oneAtRaw 0 0, combFalseStepRaw, combTrueStepRaw]
 
@@ -248,39 +251,41 @@ theorem combSem_cons_true (v : List Bool) :
        | false :: _ => (combSem ![v] ![]).tail) := rfl
 
 /-- The scan computes the stack depth in unary, offset by one, while
-`ok` holds, and the absorbing value `[false]` once it has failed. -/
+`RankedAlphabet.Binary.ok` holds, and the absorbing value `[false]` once it
+has failed. -/
 theorem combSem_eq (w : List Bool) :
     combSem ![w] ![] =
-      if BinTree.ok w then List.replicate (BinTree.depth w + 1) true
+      if ok w then List.replicate (depth w + 1) true
       else [false] := by
   refine List.rec (motive := fun u ↦ combSem ![u] ![] =
-    if BinTree.ok u then List.replicate (BinTree.depth u + 1) true else [false])
+    if ok u then List.replicate (depth u + 1) true else [false])
     rfl ?_ w
   intro b v ih
-  cases hok : BinTree.ok v
+  cases hok : ok v
   · have hv : combSem ![v] ![] = [false] := by rw [ih, hok]; rfl
     cases b
-    · rw [combSem_cons_false, hv, BinTree.ok_cons_false, hok]; rfl
-    · rw [combSem_cons_true, hv, BinTree.ok_cons_true, hok]; rfl
-  · have hv : combSem ![v] ![] = List.replicate (BinTree.depth v + 1) true := by
+    · rw [combSem_cons_false, hv, ok_cons_false, hok]; rfl
+    · rw [combSem_cons_true, hv, ok_cons_true, hok]; rfl
+  · have hv : combSem ![v] ![] = List.replicate (depth v + 1) true := by
       rw [ih, hok]; rfl
     cases b
-    · rw [combSem_cons_false, hv, BinTree.ok_cons_false, hok,
-        BinTree.depth_cons_false]
+    · rw [combSem_cons_false, hv, ok_cons_false, hok,
+        depth_cons_false_of_ok v hok]
       rfl
-    · rw [combSem_cons_true, hv, BinTree.ok_cons_true, hok,
-        BinTree.depth_cons_true]
-      -- the guard's two predecessors reduce only on a numeral of at
-      -- least that size, so the depth is split into constructor forms
+    · rw [combSem_cons_true, hv, ok_cons_true, hok]
+      -- the guard's two predecessors reduce only on a numeral of at least
+      -- that size, so the depth is split into constructor forms; the
+      -- conditional depth lemma applies only in the third case, the first
+      -- two closing on the failed branch
       have hsplit : ∀ d : ℕ, d = 0 ∨ d = 1 ∨ ∃ m, d = m + 2 := fun d ↦
         match d with
         | 0 => Or.inl rfl
         | 1 => Or.inr (Or.inl rfl)
         | (m + 2) => Or.inr (Or.inr ⟨m, rfl⟩)
-      obtain (h0 | h1 | ⟨m, hm⟩) := hsplit (BinTree.depth v)
+      obtain (h0 | h1 | ⟨m, hm⟩) := hsplit (depth v)
       · rw [h0]; rfl
       · rw [h1]; rfl
-      · rw [hm]; rfl
+      · rw [depth_cons_true_of_ok_of_two_le_depth v hok (by omega), hm]; rfl
 
 /-- The one-test at an arbitrary environment is the test at the canonical
 one. -/
@@ -310,46 +315,47 @@ theorem isTreeSem_apply (w : List Bool) :
     isTreeSem ![w] ![] =
       eqOneSem (fun _ ↦ []) (fun _ ↦ (combSem ![w] ![]).tail) := rfl
 
-/-- The recognizer accepts exactly the words satisfying `BinTree.Valid`. -/
+/-- The recognizer accepts exactly the words `binRanked`'s scan accepts. -/
 theorem isTreeSem_eq_singleton_iff_valid (w : List Bool) :
-    isTreeSem ![w] ![] = [true] ↔ BinTree.Valid w := by
+    isTreeSem ![w] ![] = [true] ↔ binRanked.Valid w := by
   rw [isTreeSem_apply, eqOneSem_env]
   simp only [eqOneSem_eq, combSem_eq]
-  by_cases h : BinTree.ok w = true
+  by_cases h : ok w = true
   · rw [if_pos h]
     simp only [List.tail_replicate, List.length_replicate, Nat.add_sub_cancel]
-    by_cases hd : BinTree.depth w = 1
+    by_cases hd : depth w = 1
     · rw [if_pos hd]
-      exact ⟨fun _ ↦ ⟨h, hd⟩, fun _ ↦ rfl⟩
+      exact ⟨fun _ ↦ (valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩, fun _ ↦ rfl⟩
     · rw [if_neg hd]
       refine ⟨fun hw ↦ absurd hw (by nofun), ?_⟩
-      rintro ⟨-, hd'⟩
-      exact absurd hd' hd
+      rintro hv
+      exact absurd ((valid_iff_ok_and_depth_eq_one w).mp hv).2 hd
   · rw [if_neg h, if_neg (by decide : ¬ ([false] : List Bool).tail.length = 1)]
     refine ⟨fun hw ↦ absurd hw (by nofun), ?_⟩
-    rintro ⟨h', -⟩
-    exact absurd h' h
+    rintro hv
+    exact absurd ((valid_iff_ok_and_depth_eq_one w).mp hv).1 h
 
-/-- The recognizer accepts exactly the preorder spellings of binary
-trees. -/
-theorem isTreeSem_eq_singleton_iff_exists_print (w : List Bool) :
-    isTreeSem ![w] ![] = [true] ↔ ∃ t, BinTree.print t = w :=
-  (isTreeSem_eq_singleton_iff_valid w).trans (BinTree.valid_iff_exists_print w)
+/-- The recognizer accepts exactly the preorder spellings of `binRanked`'s
+terms. -/
+theorem isTreeSem_eq_singleton_iff_exists_spell (w : List Bool) :
+    isTreeSem ![w] ![] = [true] ↔ ∃ t, binRanked.spell t = w :=
+  (isTreeSem_eq_singleton_iff_valid w).trans (binRanked.valid_iff_exists_spell w)
 
-/-- The recognizer is the indicator of `BinTree.Valid`: `[true]` on a
-spelling and `[]` on anything else. `isTreeSem_eq_singleton_iff_valid`
-pins the value only where it accepts. -/
+/-- The recognizer is the indicator of `binRanked`'s scan: `[true]` on a
+spelling and `[]` on anything else. `isTreeSem_eq_singleton_iff_valid` pins
+the value only where it accepts. -/
 theorem isTreeSem_eq_ite (w : List Bool) :
-    isTreeSem ![w] ![] = if BinTree.Valid w then [true] else [] := by
+    isTreeSem ![w] ![] = if binRanked.Valid w then [true] else [] := by
   rw [isTreeSem_apply, eqOneSem_env, eqOneSem_eq, combSem_eq]
-  by_cases h : BinTree.ok w = true
+  by_cases h : ok w = true
   · rw [if_pos h]
     simp only [List.tail_replicate, List.length_replicate, Nat.add_sub_cancel]
-    by_cases hd : BinTree.depth w = 1
-    · rw [if_pos hd, if_pos ⟨h, hd⟩]
-    · rw [if_neg hd, if_neg (fun hv ↦ hd hv.2)]
+    by_cases hd : depth w = 1
+    · rw [if_pos hd, if_pos ((valid_iff_ok_and_depth_eq_one w).mpr ⟨h, hd⟩)]
+    · rw [if_neg hd,
+        if_neg fun hv ↦ hd ((valid_iff_ok_and_depth_eq_one w).mp hv).2]
   · rw [if_neg h, if_neg (by decide : ¬ ([false] : List Bool).tail.length = 1),
-      if_neg (fun hv ↦ h hv.1)]
+      if_neg fun hv ↦ h ((valid_iff_ok_and_depth_eq_one w).mp hv).1]
 
 end
 

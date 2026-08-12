@@ -15,6 +15,8 @@
   - [8. Derived `Repr` instances carry an unused precedence argument](#8-derived-repr-instances-carry-an-unused-precedence-argument)
   - [9. Subobject classifier moved out of `Topos` in v4.33](#9-subobject-classifier-moved-out-of-topos-in-v433)
   - [10. `simp` leaves a `cast`'s proof argument unfolded](#10-simp-leaves-a-casts-proof-argument-unfolded)
+  - [11. Conditional-rewrite lemmas renamed in v4.34](#11-conditional-rewrite-lemmas-renamed-in-v434)
+  - [12. `Computability.Encoding` alphabet became a parameter](#12-computabilityencoding-alphabet-became-a-parameter)
 - [Updating the patch for a new upstream](#updating-the-patch-for-a-new-upstream)
   - [The no-op condition](#the-no-op-condition)
 - [Module exclusion](#module-exclusion)
@@ -24,7 +26,7 @@
 
 These notes catalogue the categories of change in
 `scripts/geb-mathlib-backport.patch`, which adapts the vendored
-`geb-mathlib` `Geb` source (mathlib `v4.33.0-rc1`) to compile under this
+`geb-mathlib` `Geb` source (mathlib `v4.34.0-rc1`) to compile under this
 repository's `v4.29.0-rc6`. When a refresh fails, check whether the new
 failure matches a category below (extend the corresponding hunk) or is
 genuinely new (decide the adaptation, add a category here).
@@ -138,8 +140,10 @@ genuinely new (decide the adaptation, add a category here).
   `fun ... => by ...`. The affected sites are `elimData_valid` in
   `Slice/W.lean` and `wValidBool_eq_true_iff` in `Slice/Decidable.lean`
   (both `WType.rec`), `isHereditarilyNaturalBoolCore_eq_true_iff` in
-  `Presheaf/Decidable.lean` (`SlicePFunctor.W.induction`), and
-  `ofRose_toRose` in `Internal/ConcreteSyntax.lean` (`Ast.ind`).
+  `Presheaf/Decidable.lean` (`SlicePFunctor.W.induction`),
+  `ofRose_toRose` in `Internal/ConcreteSyntax.lean` (`Ast.ind`), and
+  `length_spell` in `Data/Tree/Ranked/Preorder.lean`
+  (`RankedAlphabet.Term.induction`).
 - v4.29 symptom: the goal is `(fun w => ...) (WType.mk a f)` — the motive
   lambda is not beta-reduced at the constructor — so the opening
   `rw` reports "Did not find an occurrence of the pattern" (the rewritten
@@ -271,6 +275,61 @@ genuinely new (decide the adaptation, add a category here).
   `change` rather than `show`: the `show` tactic is restricted by a
   linter to indicating intermediate goal states, and this restatement
   is a transparency adjustment.
+
+### 11. Conditional-rewrite lemmas renamed in v4.34
+
+- Upstream cause: Lean core `Init/Core.lean` renames `if_pos` to
+  `ite_eq_left`, `if_neg` to `ite_eq_right`, `dif_pos` to
+  `dite_eq_left`, and `dif_neg` to `dite_eq_right` as of
+  `v4.34.0-rc1`, deprecating the four old names (`since := "2026-07-21"`).
+  The statements are unchanged; only the names move, to read off which
+  branch the conditional collapses to, as the pre-existing
+  `ite_eq_left_iff` / `dite_eq_right_iff` family already did. Upstream
+  `geb-mathlib` sets `weak.warningAsError = true`, so it cannot keep the
+  deprecated names.
+- v4.29 symptom: ``Unknown identifier `ite_eq_right` `` (and the three
+  others), followed by `unsolved goals` wherever the failed `rw` left
+  the goal standing. The affected modules are `Internal/CanonicalSExpr.lean`,
+  `Internal/ConcreteSyntax.lean`, `Internal/ReadableSExpr.lean`,
+  `CategoryTheory/FinCat/Basic.lean`, `CategoryTheory/FinCat/Hom.lean`,
+  `Computability/BellantoniCook/Tree.lean`,
+  `Computability/Cobham/RankedTree.lean`,
+  `Computability/Cobham/Tree.lean`, `Data/Tree/Ranked/Code.lean`,
+  `Data/Tree/Ranked/Preorder.lean`, and `Data/W/Basic.lean`. Only three
+  of the eleven appear in a build log: lake does not attempt a module
+  whose imports failed.
+- Adaptation: substitute the v4.29 names throughout the vendored tree.
+  The adaptation is mechanical, so re-applying it to a fresh upstream
+  source is a re-run rather than a hunk-by-hunk re-anchoring:
+
+  ```sh
+  grep -rlZ '\bd\?ite_eq_\(left\|right\)\b' vendor/geb-mathlib | xargs -0 sed -i \
+    -e 's/\bdite_eq_left\b/dif_pos/g'  -e 's/\bdite_eq_right\b/dif_neg/g' \
+    -e 's/\bite_eq_left\b/if_pos/g'    -e 's/\bite_eq_right\b/if_neg/g'
+  ```
+
+  The word boundaries keep the `…_iff` lemmas of the same stem
+  untouched; substituting the `dite` forms first keeps the `ite` forms
+  from matching inside them.
+
+### 12. `Computability.Encoding` alphabet became a parameter
+
+- Upstream cause: `Data/Tree/Ranked/Preorder.lean`'s
+  `RankedAlphabet.encoding` builds a `Computability.Encoding R.Term Bool`.
+  Mathlib has since moved the alphabet `Γ` out of `Encoding`'s fields and
+  into a second type parameter.
+- v4.29 symptom: `Function expected at Computability.Encoding R.Term`,
+  the structure taking one parameter there, with a `declaration uses ⋯`
+  on the downstream `spell_injective` as a cascade.
+- Adaptation: drop the second argument and supply the alphabet as the
+  structure instance's first field, `Γ := Bool`. The remaining three
+  fields and `Encoding.encode_injective` are unchanged between the two
+  versions.
+- Prose adaptation: the declaration docstring reads "as a
+  `Computability.Encoding`, whose three fields they are". Under v4.29 the
+  structure has a fourth field, so reword to "as a
+  `Computability.Encoding` over the alphabet `Bool`, whose remaining
+  three fields they are".
 
 ## Updating the patch for a new upstream
 
