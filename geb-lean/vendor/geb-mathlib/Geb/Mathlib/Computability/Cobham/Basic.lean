@@ -60,17 +60,26 @@ Theorem 3.101).
 * `Cobham.eval` — the interpretation of a `sig`-tree, by the slice W-type's
   eliminator.
 * `Cobham.arity` — the arity of a `sig`-tree.
+* `Cobham.semAt` — the meaning of a tree at a given arity.
 * `Cobham.RecBoundedValue` — the length bound one node imposes.
 * `Cobham.RecBounded` — `RecBoundedValue` at every node, hereditarily.
 * `Cobham.C` — Cobham's class: the trees satisfying `RecBounded`.
 * `Cobham.C.arity` — the arity of an expression.
 * `Cobham.COf` — the expressions of a given arity.
 * `Cobham.C.eval` — the meaning of an expression, at its own arity.
+* `Cobham.zeroAt`, `Cobham.zeroAtOf` — the empty bitstring at an arbitrary
+  arity.
 * `Cobham.concatRaw` / `Cobham.smashRaw` — the two generators as single nodes.
 * `Cobham.concatOf` / `Cobham.smashOf` — those nodes as expressions of arity two.
 * `Cobham.predRaw` / `Cobham.pred` — the predecessor, as a raw tree and as an
   expression of arity one.
 * `Cobham.predSem` — the meaning of the predecessor.
+* `Cobham.predIter`, `Cobham.predIterOf` — the iterated predecessor.
+* `Cobham.prepend`, `Cobham.prependOf` — a fixed word prepended to an
+  expression.
+* `Cobham.constAt`, `Cobham.constAtOf` — the constant word at a given arity.
+* `Cobham.diag`, `Cobham.diagOf` — a binary expression at its sole argument in
+  both positions.
 * `Cobham.concatCompRaw` — the concatenation of two raw trees of a common arity.
 * `Cobham.condRaw` / `Cobham.cond` — the four-way conditional, as a raw tree and as
   an expression of arity four.
@@ -81,9 +90,20 @@ Theorem 3.101).
 
 ## Main statements
 
+* `Cobham.transport_transport` — transport along a composite equality is
+  the composition of two transports.
 * `Cobham.fst_eval` — the index component of a tree's interpretation is its arity.
 * `Cobham.recBounded_mk` — `RecBounded` unfolded one level, on a raw node.
 * `Cobham.predSem_eq` — the predecessor drops the word's last bit.
+* `Cobham.wIndexRoot_predIterRaw`, `Cobham.wValid_predIterRaw`,
+  `Cobham.recBounded_predIterRaw` — the iterated predecessor's arity,
+  admissibility and recursion bound.
+* `Cobham.wIndexRoot_prependRaw`, `Cobham.wValid_prependRaw`,
+  `Cobham.recBounded_prependRaw` — prepending preserves the arity,
+  admissibility and the recursion bound.
+* `Cobham.wIndexRoot_diagRaw`, `Cobham.wValid_diagRaw`,
+  `Cobham.recBounded_diagRaw` — the diagonal's arity, admissibility and
+  recursion bound.
 * `Cobham.condSem_eq` — the conditional branches on the emptiness and parity of its
   first argument.
 
@@ -128,6 +148,10 @@ unfolding is definitional; the index equation is a hypothesis, definitional proo
 irrelevance making the choice of proof term immaterial. `C.arity` and `C.eval`
 qualify `arity` and `eval` because the namespace of the declaration being elaborated
 is in scope, which would otherwise make each body self-referential.
+
+`zeroAtRaw` carries a free arity, at which `decide` does not apply; its
+admissibility is the pair of an `Unit ⊕ Fin m` case analysis and the `funext`
+the index condition asks for.
 
 ## References
 
@@ -234,6 +258,17 @@ argument, returning a bitstring. -/
 `▸` is fixed once rather than inferred at each use in `evalValue`. -/
 @[expose] def transport {i j : ℕ} (h : i = j) (v : Sem i) : Sem j := h ▸ v
 
+/-- Transport composes. A transport along a composite equality and the
+composition of two transports agree, which is not definitional when
+neither index reduces: at a variable expression the arity equation is
+opaque, so neither `Eq.rec` fires. Named for its left-hand side, as
+core's `cast_cast` is. -/
+theorem transport_transport {i j k : ℕ} (h : i = j) (g : j = k) (v : Sem i) :
+    transport g (transport h v) = transport (h.trans g) v := by
+  subst h
+  subst g
+  rfl
+
 /-- The recursion `boundedRec` performs on its recursion variable, by `List.rec`,
 matching [HeraudNowak2011]'s `Rec` (`f(y·i, x) = h_i(y, f(y,x), x)`), not
 [Strahm2003]'s last-argument form. The base case is the empty bitstring; a step
@@ -296,6 +331,10 @@ consumes. -/
 theorem fst_eval (z : sig.W) : (eval z).1 = arity z :=
   congrFun (SlicePFunctor.W.comp_elim sig (Σ n, Sem n) (Sigma.fst (β := Sem)) evalStep rfl) z
 
+/-- The meaning of a tree at a given arity. -/
+@[expose] def semAt (n : ℕ) (e : sig.W) (he : arity e = n) : Sem n :=
+  transport ((fst_eval e).trans he) (eval e).2
+
 /-- The recursion bound of one node, from its children and the proof that each
 child's evaluated index is the one `rc` prescribes. It is vacuous at every shape but
 `boundedRec`, where it is the side condition of bounded recursion on notation
@@ -356,6 +395,29 @@ but not definitionally so, hence the `transport`. -/
 @[expose] def C.eval (e : C) : Sem e.arity :=
   transport (fst_eval e.1) (Cobham.eval e.1).2
 
+/-- The empty bitstring at an arbitrary arity. -/
+@[expose] def zeroAtRaw (n : ℕ) : sig.toPFunctor.W :=
+  WType.mk (.comp n 0) fun d ↦
+    match d with
+    | .inl () => WType.mk .zero Fin.elim0
+    | .inr i => i.elim0
+
+/-- The empty bitstring as an expression of arity `n`. -/
+@[expose] def zeroAt (n : ℕ) : C :=
+  ⟨⟨zeroAtRaw n,
+      ⟨fun d ↦ match d with
+        | .inl () => ⟨fun c ↦ c.elim0, funext fun c ↦ c.elim0⟩
+        | .inr i => i.elim0,
+      funext fun d ↦ match d with
+        | .inl () => rfl
+        | .inr i => i.elim0⟩⟩,
+    ⟨trivial, fun d ↦ match d with
+      | .inl () => ⟨trivial, fun c ↦ c.elim0⟩
+      | .inr i => i.elim0⟩⟩
+
+/-- `zeroAt n` at its declared arity. -/
+@[expose] def zeroAtOf (n : ℕ) : COf n := ⟨zeroAt n, rfl⟩
+
 /-- The `concat` generator as a single node, its `Direction` being empty. -/
 @[expose] def concatRaw : sig.toPFunctor.W := WType.mk .concat Fin.elim0
 
@@ -403,6 +465,147 @@ theorem predSem_eq (u : List Bool) : predSem ![u] = u.tail := by
   match u with
   | [] => rfl
   | b :: _ => cases b <;> rfl
+
+/-- The `k`-fold predecessor of the sole argument. -/
+@[expose] def predIterRaw : ℕ → sig.toPFunctor.W :=
+  Nat.rec (WType.mk (.proj 1 0) Fin.elim0)
+    fun _ ih ↦
+      WType.mk (.comp 1 1) fun d ↦
+        match d with
+        | .inl () => predRaw
+        | .inr _ => ih
+
+/-- The iterated predecessor has arity one, at every iterate. -/
+theorem wIndexRoot_predIterRaw (k : ℕ) : sig.wIndexRoot (predIterRaw k) = 1 := by
+  cases k with
+  | zero => rfl
+  | succ _ => rfl
+
+/-- The iterated predecessor is admissible, at every iterate. -/
+theorem wValid_predIterRaw (k : ℕ) : sig.WValid (predIterRaw k) :=
+  Nat.rec ⟨fun c ↦ c.elim0, funext fun c ↦ c.elim0⟩
+    (fun j ih ↦
+      ⟨fun d ↦ match d with
+        | .inl () => pred.1.1.2
+        | .inr _ => ih,
+      funext fun d ↦ match d with
+        | .inl () =>
+          (sig.wIndexValid_index_eq_wIndexRoot predRaw).trans pred.2
+        | .inr _ =>
+          (sig.wIndexValid_index_eq_wIndexRoot (predIterRaw j)).trans
+            (wIndexRoot_predIterRaw j)⟩)
+    k
+
+/-- The iterated predecessor carries the predecessor's recursions and no
+other. -/
+theorem recBounded_predIterRaw (k : ℕ) :
+    RecBounded ⟨predIterRaw k, wValid_predIterRaw k⟩ :=
+  Nat.rec ⟨trivial, fun c ↦ c.elim0⟩
+    (fun _ ih ↦ ⟨trivial, fun d ↦ match d with
+      | .inl () => pred.1.2
+      | .inr _ => ih⟩)
+    k
+
+/-- The iterated predecessor as an expression. -/
+@[expose] def predIter (k : ℕ) : C :=
+  ⟨⟨predIterRaw k, wValid_predIterRaw k⟩, recBounded_predIterRaw k⟩
+
+/-- `predIter` at its declared arity. -/
+@[expose] def predIterOf (k : ℕ) : COf 1 :=
+  ⟨predIter k, wIndexRoot_predIterRaw k⟩
+
+/-- A fixed word prepended to what an expression of arity `n` computes. -/
+@[expose] def prependRaw (n : ℕ) (u : List Bool) (e : sig.toPFunctor.W) :
+    sig.toPFunctor.W :=
+  List.rec e (fun b _ ih ↦
+    WType.mk (.comp n 1) fun d ↦
+      match d with
+      | .inl () => WType.mk (.succ b) Fin.elim0
+      | .inr _ => ih) u
+
+/-- Prepending preserves the arity. -/
+theorem wIndexRoot_prependRaw (n : ℕ) (u : List Bool) (e : sig.toPFunctor.W)
+    (he : sig.wIndexRoot e = n) : sig.wIndexRoot (prependRaw n u e) = n := by
+  cases u with
+  | nil => exact he
+  | cons _ _ => rfl
+
+/-- Prepending preserves admissibility. -/
+theorem wValid_prependRaw (n : ℕ) (e : sig.toPFunctor.W) (hv : sig.WValid e)
+    (he : sig.wIndexRoot e = n) :
+    ∀ u : List Bool, sig.WValid (prependRaw n u e) :=
+  List.rec hv (fun _ v ih ↦
+    ⟨fun d ↦ match d with
+      | .inl () => ⟨fun c ↦ c.elim0, funext fun c ↦ c.elim0⟩
+      | .inr _ => ih,
+    funext fun d ↦ match d with
+      | .inl () => rfl
+      | .inr _ =>
+        (sig.wIndexValid_index_eq_wIndexRoot (prependRaw n v e)).trans
+          (wIndexRoot_prependRaw n v e he)⟩)
+
+/-- Prepending introduces no recursion of its own. -/
+theorem recBounded_prependRaw (n : ℕ) (e : sig.toPFunctor.W)
+    (hv : sig.WValid e) (he : sig.wIndexRoot e = n) (hr : RecBounded ⟨e, hv⟩) :
+    ∀ u : List Bool,
+      RecBounded ⟨prependRaw n u e, wValid_prependRaw n e hv he u⟩ :=
+  List.rec hr (fun _ _ ih ↦
+    ⟨trivial, fun d ↦ match d with
+      | .inl () => ⟨trivial, fun c ↦ c.elim0⟩
+      | .inr _ => ih⟩)
+
+/-- A fixed word prepended to an expression. -/
+@[expose] def prepend {n : ℕ} (u : List Bool) (e : COf n) : C :=
+  ⟨⟨prependRaw n u e.1.1.1, wValid_prependRaw n _ e.1.1.2 e.2 u⟩,
+    recBounded_prependRaw n _ e.1.1.2 e.2 e.1.2 u⟩
+
+/-- `prepend` at its declared arity. -/
+@[expose] def prependOf {n : ℕ} (u : List Bool) (e : COf n) : COf n :=
+  ⟨prepend u e, wIndexRoot_prependRaw n u e.1.1.1 e.2⟩
+
+/-- The constant word at a given arity. -/
+@[expose] def constAt (n : ℕ) (u : List Bool) : C := prepend u (zeroAtOf n)
+
+/-- `constAt` at its declared arity. -/
+@[expose] def constAtOf (n : ℕ) (u : List Bool) : COf n :=
+  ⟨constAt n u, wIndexRoot_prependRaw n u _ (zeroAtOf n).2⟩
+
+/-- A binary expression applied to its sole argument in both positions. -/
+@[expose] def diagRaw (e : sig.toPFunctor.W) : sig.toPFunctor.W :=
+  WType.mk (.comp 1 2) fun d ↦
+    match d with
+    | .inl () => e
+    | .inr _ => WType.mk (.proj 1 0) Fin.elim0
+
+/-- The diagonal has arity one, whatever it diagonalises. -/
+theorem wIndexRoot_diagRaw (e : sig.toPFunctor.W) :
+    sig.wIndexRoot (diagRaw e) = 1 := rfl
+
+/-- The diagonal is admissible when what it diagonalises is, at arity two. -/
+theorem wValid_diagRaw (e : sig.toPFunctor.W) (hv : sig.WValid e)
+    (he : sig.wIndexRoot e = 2) : sig.WValid (diagRaw e) :=
+  ⟨fun d ↦ match d with
+    | .inl () => hv
+    | .inr _ => ⟨fun c ↦ c.elim0, funext fun c ↦ c.elim0⟩,
+  funext fun d ↦ match d with
+    | .inl () => (sig.wIndexValid_index_eq_wIndexRoot e).trans he
+    | .inr _ => rfl⟩
+
+/-- The diagonal introduces no recursion of its own. -/
+theorem recBounded_diagRaw (e : sig.W) (he : arity e = 2)
+    (hr : RecBounded e) :
+    RecBounded ⟨diagRaw e.1, wValid_diagRaw e.1 e.2 he⟩ :=
+  ⟨trivial, fun d ↦ match d with
+    | .inl () => hr
+    | .inr _ => ⟨trivial, fun c ↦ c.elim0⟩⟩
+
+/-- The diagonal as an expression. -/
+@[expose] def diag (e : COf 2) : C :=
+  ⟨⟨diagRaw e.1.1.1, wValid_diagRaw e.1.1.1 e.1.1.2 e.2⟩,
+    recBounded_diagRaw e.1.1 e.2 e.1.2⟩
+
+/-- `diag` at its declared arity. -/
+@[expose] def diagOf (e : COf 2) : COf 1 := ⟨diag e, wIndexRoot_diagRaw _⟩
 
 /-- The concatenation of two `n`-ary raw trees: a `comp` node of arity `n` whose
 head is the `concat` generator, applied to `a` and `b` in that order. Its value at
