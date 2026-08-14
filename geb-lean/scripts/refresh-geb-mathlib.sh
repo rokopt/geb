@@ -5,6 +5,19 @@ set -euo pipefail
 
 REPO_URL="https://github.com/rokopt/geb-mathlib.git"
 SRC_REV="${1:-main}"
+
+# Modules dropped from the vendored copy, each with its submodules and
+# every import of it. A module qualifies when it depends on a definition
+# absent from the pinned toolchain's dependencies and no patch hunk can
+# supply it. See docs/geb-mathlib-backport-notes.md § Module exclusion.
+#
+# Name the narrowest module that carries the dependency, so that a
+# sibling added upstream later is ingested rather than silently dropped.
+#
+# Geb.Internal.Computability.TreeScanner: imports
+# Cslib.Computability.Machines.Turing.MultiTape.{Deterministic,TapeLemmas},
+# added to cslib after the pinned v4.29.0-rc6 revision.
+EXCLUDED_MODULES=(Geb.Internal.Computability.TreeScanner)
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"   # geb-lean package root
 VENDOR="$ROOT/vendor/geb-mathlib"
 PATCH="$ROOT/scripts/geb-mathlib-backport.patch"
@@ -21,6 +34,7 @@ git -C "$TMP/gm" checkout --quiet "$SRC_REV"
 # itself when the patch and PROVENANCE.md change in the same commit.
 SRC_SHA="$(git -C "$TMP/gm" rev-parse HEAD)"
 PATCH_SHA256="$(sha256sum "$PATCH" | cut -d' ' -f1)"
+EXCLUDED_RENDERED="${EXCLUDED_MODULES[*]:-(none)}"
 
 # Complete overwrite of the Geb namespace (no orphaned files).
 rm -f "$VENDOR/Geb.lean"; rm -rf "$VENDOR/Geb"
@@ -34,7 +48,8 @@ cat > "$VENDOR/PROVENANCE.md" <<EOF
 - Source: $REPO_URL
 - Source commit: $SRC_SHA
 - Back-port patch: scripts/geb-mathlib-backport.patch (sha256 $PATCH_SHA256)
-- The files under \`Geb/\` are an unmodified mirror of the source commit except where the back-port patch changes them; modified files carry a change notice in their header comment.
+- Excluded modules: $EXCLUDED_RENDERED. Each is dropped along with its submodules and every import of it; see scripts/refresh-geb-mathlib.sh.
+- The files under \`Geb/\` are an unmodified mirror of the source commit except where the back-port patch changes them and where the exclusion above removes them; modified files carry a change notice in their header comment.
 EOF
 
 # Apply the back-port patch; a rejection is a hard, reportable failure.
@@ -44,6 +59,17 @@ EOF
 GIT_ROOT="$(git -C "$ROOT" rev-parse --show-toplevel)"
 REL="$(realpath --relative-to="$GIT_ROOT" "$ROOT")"
 ( cd "$GIT_ROOT" && git apply -p1 --directory="$REL" "$PATCH" )
+
+# Drop excluded modules after patching, so every hunk still anchors
+# against the pristine upstream text it was generated from.
+for mod in "${EXCLUDED_MODULES[@]}"; do
+  rm -f "$VENDOR/${mod//.//}.lean"
+  rm -rf "$VENDOR/${mod//.//}"
+  # An import of an excluded module or of any of its submodules would
+  # leave the surviving tree with a bad import.
+  find "$VENDOR" -name '*.lean' -exec \
+    sed -i -E "/^(public )?import ${mod}(\.|\$)/d" {} +
+done
 
 # A refresh that changes no vendored content (an upstream revision
 # touching none of the mirrored files) leaves at most PROVENANCE.md

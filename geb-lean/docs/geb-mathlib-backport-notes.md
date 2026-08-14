@@ -20,6 +20,8 @@
 - [Updating the patch for a new upstream](#updating-the-patch-for-a-new-upstream)
   - [The no-op condition](#the-no-op-condition)
 - [Module exclusion](#module-exclusion)
+  - [Mechanism](#mechanism)
+  - [Current exclusions](#current-exclusions)
 - [Tooling notes](#tooling-notes)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -333,8 +335,9 @@ genuinely new (decide the adaptation, add a category here).
 
 ## Updating the patch for a new upstream
 
-The vendored tree is a pure function of two committed inputs: the
-upstream `geb-mathlib` commit and this patch.
+The vendored tree is a pure function of three committed inputs: the
+upstream `geb-mathlib` commit, this patch, and the exclusion list in
+`scripts/refresh-geb-mathlib.sh` (see [Module exclusion](#module-exclusion)).
 `scripts/refresh-geb-mathlib.sh` recomputes it by re-cloning upstream
 and re-applying the patch with `git apply`. A patch hunk's context
 lines are tied to the upstream revision it was generated against; when
@@ -389,13 +392,47 @@ does not exist in `v4.29.0-rc6` (a genuinely new result, not a rename),
 no patch hunk can supply it and `sorry`/`admit` are banned. Such a module
 is dropped from the vendored copy via the refresh script's exclusion list
 until either `geb-lean` is forward-migrated to `v4.33.0-rc1` or the
-consuming exploration is deferred. No module has yet met that condition,
-so the script carries no exclusion list.
+consuming exploration is deferred. The same applies to a dependency on
+`Cslib`, pinned alongside mathlib at `v4.29.0-rc6`.
 
 A reference to an unknown module does not necessarily require a module to be
 excluded: a  declaration that moved between modules or namespaces is a rename,
 and category 9 is the worked case. Before excluding a module, locate each
 name it needs in the v4.29 tree and compare signatures.
+
+### Mechanism
+
+`EXCLUDED_MODULES` in `scripts/refresh-geb-mathlib.sh` names modules in
+Lean dotted form. For each entry the script removes the module's own
+file and its submodule directory, then deletes every `import` of the
+entry or of one of its submodules from the surviving files, so that no
+bad import remains. The removal runs after `git apply`, so each patch
+hunk still anchors against the pristine upstream text it was generated
+from. `PROVENANCE.md` records the list, the vendored tree being a
+function of it as well as of the upstream commit and the patch.
+
+An entry names the narrowest module carrying the unavailable
+dependency rather than an ancestor namespace: a sibling added upstream
+under an excluded ancestor would be dropped without a signal, whereas
+under a retained ancestor it is ingested and any incompatibility of its
+own surfaces in the refresh workflow's build.
+
+### Current exclusions
+
+- `Geb.Internal.Computability.TreeScanner` (and its `Machine`, `Steps`,
+  and `Bound` submodules) imports
+  `Cslib.Computability.Machines.Turing.MultiTape.Deterministic` and
+  `Cslib.Computability.Machines.Turing.MultiTape.TapeLemmas`, and uses
+  the `Turing.MultiTapeTM` namespace those modules introduce. Neither
+  module exists at the pinned cslib revision `9a159ac`
+  (`v4.29.0-rc6`), whose only Turing-machine material is
+  `Cslib.Computability.Machines.SingleTapeTuring.Basic`.
+  `git log --follow --name-status` over cslib records both as additions —
+  `MultiTape/Deterministic.lean` in cslib PR #384 and
+  `MultiTape/TapeLemmas.lean` in cslib PR #768 — not as renames of
+  anything present at the pin, and the pinned tree contains no
+  occurrence of `MultiTape`. Lifting the exclusion requires advancing
+  the cslib pin, which the mathlib and toolchain pins govern.
 
 ## Tooling notes
 
