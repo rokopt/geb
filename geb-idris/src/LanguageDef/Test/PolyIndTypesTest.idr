@@ -1717,24 +1717,59 @@ SmallIIRF : {0 i : Type} -> {0 d : i -> Type} ->
   SmallIIR i d j e -> IIRSlice i d -> IIRSlice j e
 SmallIIRF c g n = (SmallIIRPos c g n ** SmallIIRDec c g n)
 
--- The initial algebra of an endo-code:  an indexed family together
--- with its decoder, defined simultaneously.
-mutual
-  public export
-  partial
-  data SmallIIRMu : {0 i : Type} -> {0 d : i -> Type} ->
-      SmallIIR i d i d -> i -> Type where
-    InSIIR : {0 i : Type} -> {0 d : i -> Type} ->
-      {c : SmallIIR i d i d} -> {n : i} ->
-      SmallIIRPos c (\m => (SmallIIRMu c m ** SmallIIRDecode c m)) n ->
-      SmallIIRMu c n
+--------------------------------------------------------
+--------------------------------------------------------
+---- Reducing indexed induction-recursion to plain IR ----
+--------------------------------------------------------
+--------------------------------------------------------
 
-  public export
-  partial
-  SmallIIRDecode : {0 i : Type} -> {0 d : i -> Type} ->
-    (c : SmallIIR i d i d) -> (n : i) -> SmallIIRMu c n -> d n
-  SmallIIRDecode c n (InSIIR p) =
-    SmallIIRDec c (\m => (SmallIIRMu c m ** SmallIIRDecode c m)) n p
+-- The paper's `|_|` (Section 6):  an indexed code over `i`/`j` with
+-- decodings `d`/`e` becomes a plain code over the total spaces
+-- `Sigma i d` and `Sigma j e`.
+--
+-- `SIIRiota` and `SIIRsigma` carry across unchanged.  The work is in
+-- `SIIRdelta`:  a recursive field of the plain code decodes to a
+-- *pair* of an index and a value, so the translation cannot ask for a
+-- field at a chosen index directly.  Instead it takes the fields
+-- wherever they land and then adds a `SIRsigma` whose field is the
+-- proof that they landed at the indices `ix` demanded -- the paper's
+-- `sigma (i = pi_0 . iD)`.  Those proofs are then what lets the
+-- values be transported into the types the continuation expects.
+--
+-- The equality is stated pointwise rather than between the two index
+-- functions, so that building one needs no functional extensionality.
+public export
+smallIIRtoIR : {0 i : Type} -> {0 d : i -> Type} ->
+  {0 j : Type} -> {0 e : j -> Type} ->
+  SmallIIR i d j e -> SmallIR (n : i ** d n) (m : j ** e m)
+smallIIRtoIR (SIIRiota je) = SIRiota je
+smallIIRtoIR (SIIRsigma s k) = SIRsigma s (\a => smallIIRtoIR (k a))
+smallIIRtoIR (SIIRdelta p ix k) =
+  SIRdelta p (\iD =>
+    SIRsigma ((q : p) -> fst (iD q) = ix q) (\cq =>
+      smallIIRtoIR (k (\q => replace {p=d} (cq q) (snd (iD q))))))
+
+-- The fixed point of an indexed code is now *derived*:  take the
+-- fixed point of the translated plain code, whose decoding lands in
+-- `Sigma i d`, and cut it into fibres over the index.  This is the
+-- paper's remark that the corresponding fixpoint gives the inductive
+-- family indexed by pairs in `Sigma D`.
+public export
+partial
+SmallIIRMu : {0 i : Type} -> {0 d : i -> Type} ->
+  SmallIIR i d i d -> i -> Type
+SmallIIRMu c n =
+  (x : SmallIRMu (smallIIRtoIR c) **
+   fst (SmallIRDecode (smallIIRtoIR c) x) = n)
+
+-- ... and the decoder is the second component of that decoding,
+-- transported along the fibre's index proof.
+public export
+partial
+SmallIIRDecode : {0 i : Type} -> {0 d : i -> Type} ->
+  (c : SmallIIR i d i d) -> (n : i) -> SmallIIRMu c n -> d n
+SmallIIRDecode c n x =
+  replace {p=d} (snd x) (snd (SmallIRDecode (smallIIRtoIR c) (fst x)))
 
 
 -------------------------------------------------------------
@@ -1882,29 +1917,45 @@ public export
 CbvId : Tm
 CbvId = TLam (TVar 0)
 
+-- Evidence now lives in the *translated* plain code, so it is built
+-- with `InSIR`.  A value -- here a lambda -- reaches a `SIRiota`
+-- immediately, whose shape is `Unit`.
 public export
 partial
-cbvValueEvidence : (t : Tm) -> CbvDom (TLam t)
-cbvValueEvidence t = InSIIR (TLam t ** Refl)
+cbvValueMu : (t : Tm) -> SmallIRMu (smallIIRtoIR CbvD)
+cbvValueMu t = InSIR (TLam t ** ())
 
 public export
 partial
-cbvIdEvidence : Unit -> CbvDom CbvId
-cbvIdEvidence _ = cbvValueEvidence (TVar 0)
+cbvValueEvidence : (t : Tm) -> CbvDom (TLam t)
+cbvValueEvidence t = (cbvValueMu t ** Refl)
+
+public export
+partial
+cbvIdMu : Unit -> SmallIRMu (smallIIRtoIR CbvD)
+cbvIdMu _ = cbvValueMu (TVar 0)
 
 public export
 CbvIdApp : Tm
 CbvIdApp = TApp CbvId CbvId
 
 -- Evidence that the evaluator terminates on `(\x. x) (\x. x)`:  one
--- piece for the function part, one for the argument, and one for the
--- substituted body, which here is the identity again.
+-- recursive field for the function part, one for the argument, and
+-- one for the substituted body, which here is the identity again.
+--
+-- The translation shows up as the `\ _ => Refl` beside each field:
+-- that is the `SIRsigma` constraint proving the field decoded to the
+-- index the indexed code demanded.  In the indexed presentation those
+-- proofs were implicit in the family's index; here they are data.
 public export
 partial
 CbvIdAppEvidence : CbvDom CbvIdApp
 CbvIdAppEvidence =
-  InSIIR (CbvIdApp **
-    (cbvIdEvidence ** (cbvIdEvidence ** (cbvIdEvidence ** Refl))))
+  (InSIR (CbvIdApp **
+     (cbvIdMu ** ((\_ => Refl) **
+       (cbvIdMu ** ((\_ => Refl) **
+         (cbvIdMu ** ((\_ => Refl) ** ())))))))
+   ** Refl)
 
 -- ... and it evaluates to the identity.
 public export
