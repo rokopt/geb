@@ -445,6 +445,24 @@ replaceCongApp : {0 a, a' : Type} -> {0 g : a' -> a} ->
   replace {p=b} r (h w') = h w
 replaceCongApp Refl Refl _ = Refl
 
+-- A dependent sum is determined by its base and its fibres, so an
+-- equality of bases plus a fibrewise equality gives an equality of
+-- sums.  (`funExt` is what turns the fibrewise data into one
+-- equality of families.)
+public export
+sigmaTyCong : FunExt -> {a, a' : Type} -> (p : a' = a) ->
+  (b : a -> Type) -> (b' : a' -> Type) ->
+  ((x : a') -> b' x = b (replace {p=(\t => t)} p x)) ->
+  Sigma {a=a'} b' = Sigma {a} b
+sigmaTyCong fext Refl b b' q = cong (Sigma {a}) (funExt q)
+
+public export
+piTyCong : FunExt -> {a, a' : Type} -> (p : a' = a) ->
+  (b : a -> Type) -> (b' : a' -> Type) ->
+  ((x : a') -> b' x = b (replace {p=(\t => t)} p x)) ->
+  Pi {a=a'} b' = Pi {a} b
+piTyCong fext Refl b b' q = cong (Pi {a}) (funExt q)
+
 
 ----------------------------------------------------------
 ----------------------------------------------------------
@@ -491,52 +509,194 @@ piCongFrom fext i b =
 -- family; the original formulation is the case `idx = Unit`,
 -- `sty () = Nat`.
 parameters (idx : Type) (sty : idx -> Type)
+  ---------------------------------------------------
+  ---------------------------------------------------
+  ---- The universe endofunctor on families ----
+  ---------------------------------------------------
+  ---------------------------------------------------
+
+  -- Objects of the base category:  a type of codes together with a
+  -- decoding of them.  (`FreeCoprodCompDisc Type` in the Lean.)
+  public export
+  IRFam : Type
+  IRFam = (ty : Type ** ty -> Type)
+
+  -- Morphisms are maps of codes which *preserve* the decoding:  the
+  -- base is discrete.  That discreteness is what makes the decoding's
+  -- negative occurrence in `IRUnivPos` harmless, and so what makes
+  -- `IRUniv` a functor at all.
+  public export
+  IRFamMor : IRFam -> IRFam -> Type
+  IRFamMor o o' = (g : fst o -> fst o' ** ExtEq (snd o' . g) (snd o))
+
+  -- The first component of the endofunctor, a map to `Type`:  the
+  -- codes of the next stage -- one starting type per index, a
+  -- dependent-sum former, and a dependent-product former.
+  public export
+  IRUnivPos : IRFam -> Type
+  IRUnivPos o =
+    Either idx
+      (Either
+        (u : fst o ** (snd o u -> fst o))
+        (u : fst o ** (snd o u -> fst o)))
+
+  -- The second component, dependent on the output of the first:  the
+  -- decoding of each new code.
+  public export
+  IRUnivDec : (o : IRFam) -> IRUnivPos o -> Type
+  IRUnivDec o (Left i) = sty i
+  IRUnivDec o (Right (Left (u ** f))) = Sigma {a=(snd o u)} (snd o . f)
+  IRUnivDec o (Right (Right (u ** f))) = Pi {a=(snd o u)} (snd o . f)
+
+  -- The endofunctor is the dependent pair of the two components.
+  public export
+  IRUniv : IRFam -> IRFam
+  IRUniv o = (IRUnivPos o ** IRUnivDec o)
+
+  ---- The action of `IRUniv` on morphisms ----
+
+  -- On codes:  rename the bound code, and reindex the family under
+  -- the binder.  Reindexing needs the decoding to travel *backwards*
+  -- along the morphism, which is exactly what discreteness supplies.
+  public export
+  IRUnivPosMor : (o, o' : IRFam) -> (m : IRFamMor o o') ->
+    IRUnivPos o -> IRUnivPos o'
+  IRUnivPosMor o o' m (Left i) = Left i
+  IRUnivPosMor o o' m (Right (Left (u ** f))) =
+    Right (Left
+      (fst m u ** \x => fst m (f (replace {p=(\t => t)} (snd m u) x))))
+  IRUnivPosMor o o' m (Right (Right (u ** f))) =
+    Right (Right
+      (fst m u ** \x => fst m (f (replace {p=(\t => t)} (snd m u) x))))
+
+  -- ... and the renaming preserves the decoding, which is what makes
+  -- it a morphism of the target family.
+  public export
+  IRUnivDecMor : FunExt -> (o, o' : IRFam) -> (m : IRFamMor o o') ->
+    ExtEq (IRUnivDec o' . IRUnivPosMor o o' m) (IRUnivDec o)
+  IRUnivDecMor fext o o' m (Left i) = Refl
+  IRUnivDecMor fext o o' m (Right (Left (u ** f))) =
+    sigmaTyCong fext (snd m u) (snd o . f)
+      (snd o' . (\x => fst m (f (replace {p=(\t => t)} (snd m u) x))))
+      (\x => snd m (f (replace {p=(\t => t)} (snd m u) x)))
+  IRUnivDecMor fext o o' m (Right (Right (u ** f))) =
+    piTyCong fext (snd m u) (snd o . f)
+      (snd o' . (\x => fst m (f (replace {p=(\t => t)} (snd m u) x))))
+      (\x => snd m (f (replace {p=(\t => t)} (snd m u) x)))
+
+  -- The morphism map of the endofunctor, again a dependent pair of
+  -- the two components.  The functor laws are not proved here.
+  public export
+  IRUnivMor : FunExt -> (o, o' : IRFam) -> (m : IRFamMor o o') ->
+    IRFamMor (IRUniv o) (IRUniv o')
+  IRUnivMor fext o o' m = (IRUnivPosMor o o' m ** IRUnivDecMor fext o o' m)
+
+  -- The initial algebra.  `IRCode` and `IRdecode` are the components
+  -- of the least fixed point of `IRUniv`, in the style of `Mu`, but
+  -- over families rather than over `Type`.  Idris accepts `IRCode`
+  -- itself, but can no longer see that `IRdecode` terminates:  the
+  -- recursive calls are hidden inside `IRUnivDec`.
   mutual
     public export
     data IRCode : Type where
-      IRCiota : (i : idx) -> IRCode
-      IRCsigma : (u : IRCode) -> (IRdecode u -> IRCode) -> IRCode
-      IRCpi : (u : IRCode) -> (IRdecode u -> IRCode) -> IRCode
+      InIRC : IRUnivPos (IRCode ** IRdecode) -> IRCode
 
     public export
+    partial
     IRdecode : IRCode -> Type
-    IRdecode (IRCiota i) = sty i
-    IRdecode (IRCsigma u f) = Sigma {a=(IRdecode u)} (IRdecode . f)
-    IRdecode (IRCpi u f) = Pi {a=(IRdecode u)} (IRdecode . f)
+    IRdecode (InIRC p) = IRUnivDec (IRCode ** IRdecode) p
 
+  -- The former data constructors, now smart constructors.  Building a
+  -- code is unchanged; matching on one must go through `InIRC`.
+  public export
+  IRCiota : (i : idx) -> IRCode
+  IRCiota i = InIRC (Left i)
+
+  public export
+  partial
+  IRCsigma : (u : IRCode) -> (IRdecode u -> IRCode) -> IRCode
+  IRCsigma u f = InIRC (Right (Left (u ** f)))
+
+  public export
+  partial
+  IRCpi : (u : IRCode) -> (IRdecode u -> IRCode) -> IRCode
+  IRCpi u f = InIRC (Right (Right (u ** f)))
+
+  -------------------------------------------
+  -------------------------------------------
+  ---- The universe endofunctor on arrows ----
+  -------------------------------------------
+  -------------------------------------------
+
+  -- Objects of the base category:  a map, read as the fibration whose
+  -- fibre over a code is the type of terms of that code.
+  public export
+  IRArr : Type
+  IRArr = (dom : Type ** (cod : Type ** (dom -> cod)))
+
+  public export
+  IRArrDom : IRArr -> Type
+  IRArrDom o = fst o
+
+  public export
+  IRArrCod : IRArr -> Type
+  IRArrCod o = fst (snd o)
+
+  public export
+  IRArrPrj : (o : IRArr) -> IRArrDom o -> IRArrCod o
+  IRArrPrj o = snd (snd o)
+
+  public export
+  IRArrFib : (o : IRArr) -> IRArrCod o -> Type
+  IRArrFib o c = (t : IRArrDom o ** IRArrPrj o t = c)
+
+  -- An arrow and a family carry the same information:  a fibration is
+  -- its family of fibres.  Under that translation the arrow functor's
+  -- two components are *literally* the family functor's -- the
+  -- definitions below are by `IRUnivPos`/`IRUnivDec` on the
+  -- translated family, not merely isomorphic to them.  This is the
+  -- sense in which the inductive-recursive and inductive-inductive
+  -- formulations are two readings of one endofunctor:  the decoding
+  -- lands in `Type` in one and in the codes themselves in the other.
+  public export
+  IRArrToFam : IRArr -> IRFam
+  IRArrToFam o = (IRArrCod o ** IRArrFib o)
+
+  public export
+  IRArrPos : IRArr -> Type
+  IRArrPos o = IRUnivPos (IRArrToFam o)
+
+  public export
+  IRArrTm : (o : IRArr) -> IRArrPos o -> Type
+  IRArrTm o = IRUnivDec (IRArrToFam o)
+
+  -- The new domain is the total space of the terms and the new
+  -- projection is its first component, so the arrow of the image is a
+  -- plain first projection.
+  public export
+  IRArrF : IRArr -> IRArr
+  IRArrF o = (Sigma {a=(IRArrPos o)} (IRArrTm o) ** (IRArrPos o ** fst))
+
+  -- The initial algebra, again in the style of `Mu`.  Here Idris
+  -- accepts even `IRTerm` and `IRCode'` without `partial`:  the
+  -- negative occurrence which the direct formulation exposed is now
+  -- hidden behind `IRArrPos`, so the positivity check simply cannot
+  -- see it.  That is a weaker check, not a stronger guarantee.
   mutual
     public export
-    partial
-    data IRCode' : Type where
-      IRCiota' :
-        (i : idx) -> IRCode'
-      IRCsigma' :
-        (u : IRCode') -> ((t : IRTerm ** IRfib t = u) -> IRCode') -> IRCode'
-      IRCpi' :
-        (u : IRCode') -> ((t : IRTerm ** IRfib t = u) -> IRCode') -> IRCode'
+    data IRTerm : Type where
+      InIRT :
+        Sigma {a=(IRArrPos (IRTerm ** (IRCode' ** IRfib)))}
+          (IRArrTm (IRTerm ** (IRCode' ** IRfib))) -> IRTerm
 
     public export
-    partial
-    data IRTerm : Type where
-      IRTiota :
-        (i : idx) -> sty i -> IRTerm
-      IRTsigma :
-        (u : IRCode') -> (v : (t : IRTerm ** IRfib t = u) -> IRCode') ->
-        (t : IRTerm) -> (e : IRfib t = u) ->
-        (t' : IRTerm) -> (IRfib t' = v (t ** e)) ->
-        IRTerm
-      IRTpi :
-        (u : IRCode') -> (v : (t : IRTerm ** IRfib t = u) -> IRCode') ->
-        ((t : IRTerm) -> (e : IRfib t = u) ->
-         (t' : IRTerm ** (IRfib t' = v (t ** e)))) ->
-        IRTerm
+    data IRCode' : Type where
+      InIRC' : IRArrPos (IRTerm ** (IRCode' ** IRfib)) -> IRCode'
 
     public export
     partial
     IRfib : IRTerm -> IRCode'
-    IRfib (IRTiota i _) = IRCiota' i
-    IRfib (IRTsigma u v _ _ _ _) = IRCsigma' u v
-    IRfib (IRTpi u v _) = IRCpi' u v
+    IRfib (InIRT (c ** _)) = InIRC' c
 
   -------------------------------
   -------------------------------
@@ -551,6 +711,46 @@ parameters (idx : Type) (sty : idx -> Type)
   partial
   IRFib : IRCode' -> Type
   IRFib u = (t : IRTerm ** IRfib t = u)
+
+  ------------------------------------------------
+  ------------------------------------------------
+  ---- Smart constructors for codes and terms ----
+  ------------------------------------------------
+  ------------------------------------------------
+
+  public export
+  partial
+  IRCiota' : (i : idx) -> IRCode'
+  IRCiota' i = InIRC' (Left i)
+
+  public export
+  partial
+  IRCsigma' : (u : IRCode') -> (IRFib u -> IRCode') -> IRCode'
+  IRCsigma' u v = InIRC' (Right (Left (u ** v)))
+
+  public export
+  partial
+  IRCpi' : (u : IRCode') -> (IRFib u -> IRCode') -> IRCode'
+  IRCpi' u v = InIRC' (Right (Right (u ** v)))
+
+  public export
+  partial
+  IRTiota : (i : idx) -> sty i -> IRTerm
+  IRTiota i n = InIRT (Left i ** n)
+
+  -- The dependent-sum and dependent-product term formers now take
+  -- fibre elements directly, rather than a term paired with a proof.
+  public export
+  partial
+  IRTsigma : (u : IRCode') -> (v : IRFib u -> IRCode') ->
+    (x : IRFib u) -> IRFib (v x) -> IRTerm
+  IRTsigma u v x y = InIRT (Right (Left (u ** v)) ** (x ** y))
+
+  public export
+  partial
+  IRTpi : (u : IRCode') -> (v : IRFib u -> IRCode') ->
+    ((x : IRFib u) -> IRFib (v x)) -> IRTerm
+  IRTpi u v g = InIRT (Right (Right (u ** v)) ** g)
 
 
   ----------------------------------------------
@@ -567,13 +767,13 @@ parameters (idx : Type) (sty : idx -> Type)
   public export
   partial
   iotaFibFrom : (i : idx) -> IRFib (IRCiota' i) -> sty i
-  iotaFibFrom i (IRTiota i n ** Refl) = n
+  iotaFibFrom i (InIRT (_ ** n) ** Refl) = n
 
   public export
   partial
   iotaFibToFrom : (i : idx) -> (z : IRFib (IRCiota' i)) ->
     iotaFibTo i (iotaFibFrom i z) = z
-  iotaFibToFrom i (IRTiota i _ ** Refl) = Refl
+  iotaFibToFrom i (InIRT (_ ** _) ** Refl) = Refl
 
   public export
   partial
@@ -592,7 +792,7 @@ parameters (idx : Type) (sty : idx -> Type)
   partial
   sigmaPair : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     (x : IRFib u) -> IRFib (v x) -> IRFib (IRCsigma' u v)
-  sigmaPair u v (t ** e) (t' ** e') = (IRTsigma u v t e t' e' ** Refl)
+  sigmaPair u v x y = (IRTsigma u v x y ** Refl)
 
   -- Matching the equality proof against `Refl` is what inverts the
   -- constructor:  it forces the (higher-order) index `v` as well as `u`.
@@ -600,20 +800,20 @@ parameters (idx : Type) (sty : idx -> Type)
   partial
   sigmaFst : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     IRFib (IRCsigma' u v) -> IRFib u
-  sigmaFst u v (IRTsigma u v t e _ _ ** Refl) = (t ** e)
+  sigmaFst u v (InIRT (_ ** tm) ** Refl) = fst tm
 
   public export
   partial
   sigmaSnd : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     (z : IRFib (IRCsigma' u v)) -> IRFib (v (sigmaFst u v z))
-  sigmaSnd u v (IRTsigma u v _ _ t' e' ** Refl) = (t' ** e')
+  sigmaSnd u v (InIRT (_ ** tm) ** Refl) = snd tm
 
   public export
   partial
   sigmaEta : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     (z : IRFib (IRCsigma' u v)) ->
     sigmaPair u v (sigmaFst u v z) (sigmaSnd u v z) = z
-  sigmaEta u v (IRTsigma u v _ _ _ _ ** Refl) = Refl
+  sigmaEta u v (InIRT (_ ** (_ ** _)) ** Refl) = Refl
 
   public export
   partial
@@ -641,7 +841,7 @@ parameters (idx : Type) (sty : idx -> Type)
     (x : IRFib u) -> (y : IRFib (v x)) ->
     sigmaFibFrom u v b j (sigmaPair u v x y) =
       MkDPair {p=b} x (tiFrom (j x) y)
-  sigmaFibFromPair u v b j (_ ** _) (_ ** _) = Refl
+  sigmaFibFromPair u v b j _ _ = Refl
 
   public export
   partial
@@ -691,26 +891,26 @@ parameters (idx : Type) (sty : idx -> Type)
   partial
   piLam : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     ((x : IRFib u) -> IRFib (v x)) -> IRFib (IRCpi' u v)
-  piLam u v g = (IRTpi u v (\t, e => g (t ** e)) ** Refl)
+  piLam u v g = (IRTpi u v g ** Refl)
 
   public export
   partial
   piApp : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     IRFib (IRCpi' u v) -> (x : IRFib u) -> IRFib (v x)
-  piApp u v (IRTpi u v g ** Refl) (t ** e) = g t e
+  piApp u v (InIRT (_ ** tm) ** Refl) = tm
 
   public export
   partial
   piBeta : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     (g : (x : IRFib u) -> IRFib (v x)) -> (x : IRFib u) ->
     piApp u v (piLam u v g) x = g x
-  piBeta u v g (_ ** _) = Refl
+  piBeta u v g _ = Refl
 
   public export
   partial
   piEta : (u : IRCode') -> (v : IRFib u -> IRCode') ->
     (h : IRFib (IRCpi' u v)) -> piLam u v (piApp u v h) = h
-  piEta u v (IRTpi u v _ ** Refl) = Refl
+  piEta u v (InIRT (_ ** _) ** Refl) = Refl
 
   public export
   partial
@@ -782,11 +982,11 @@ parameters (idx : Type) (sty : idx -> Type)
     public export
     partial
     IRtoC : FunExt -> IRCode -> IRCode'
-    IRtoC fext (IRCiota i) = IRCiota' i
-    IRtoC fext (IRCsigma u f) =
+    IRtoC fext (InIRC (Left i)) = IRCiota' i
+    IRtoC fext (InIRC (Right (Left (u ** f)))) =
       IRCsigma' (IRtoC fext u)
         (\w => IRtoC fext (f (tiFrom (IRdecIso fext u) w)))
-    IRtoC fext (IRCpi u f) =
+    IRtoC fext (InIRC (Right (Right (u ** f)))) =
       IRCpi' (IRtoC fext u)
         (\w => IRtoC fext (f (tiFrom (IRdecIso fext u) w)))
 
@@ -794,8 +994,8 @@ parameters (idx : Type) (sty : idx -> Type)
     partial
     IRdecIso : (fext : FunExt) -> (u : IRCode) ->
       TIso (IRdecode u) (IRFib (IRtoC fext u))
-    IRdecIso fext (IRCiota i) = iotaFibIso i
-    IRdecIso fext (IRCsigma u f) =
+    IRdecIso fext (InIRC (Left i)) = iotaFibIso i
+    IRdecIso fext (InIRC (Right (Left (u ** f)))) =
       tisoTrans
         (sigmaCongFrom (IRdecIso fext u) (\x => IRdecode (f x)))
         (sigmaFibIso
@@ -803,7 +1003,7 @@ parameters (idx : Type) (sty : idx -> Type)
           (\w => IRtoC fext (f (tiFrom (IRdecIso fext u) w)))
           (\w => IRdecode (f (tiFrom (IRdecIso fext u) w)))
           (\w => IRdecIso fext (f (tiFrom (IRdecIso fext u) w))))
-    IRdecIso fext (IRCpi u f) =
+    IRdecIso fext (InIRC (Right (Right (u ** f)))) =
       tisoTrans
         (piCongFrom fext (IRdecIso fext u) (\x => IRdecode (f x)))
         (piFibIso fext
@@ -822,16 +1022,16 @@ parameters (idx : Type) (sty : idx -> Type)
   public export
   partial
   isIotaC : IRCode' -> Bool
-  isIotaC (IRCiota' _) = True
-  isIotaC (IRCsigma' _ _) = False
-  isIotaC (IRCpi' _ _) = False
+  isIotaC (InIRC' (Left _)) = True
+  isIotaC (InIRC' (Right (Left _))) = False
+  isIotaC (InIRC' (Right (Right _))) = False
 
   public export
   partial
   isSigmaC : IRCode' -> Bool
-  isSigmaC (IRCiota' _) = False
-  isSigmaC (IRCsigma' _ _) = True
-  isSigmaC (IRCpi' _ _) = False
+  isSigmaC (InIRC' (Left _)) = False
+  isSigmaC (InIRC' (Right (Left _))) = True
+  isSigmaC (InIRC' (Right (Right _))) = False
 
   public export
   partial
@@ -892,6 +1092,7 @@ parameters (idx : Type) (sty : idx -> Type)
   piCodeCong fext a v1 a v2 Refl q = cong (IRCpi' a) (funExt q)
 
   public export
+  partial
   IRCsigmaCong : FunExt -> (u1 : IRCode) -> (f1 : IRdecode u1 -> IRCode) ->
     (u2 : IRCode) -> (f2 : IRdecode u2 -> IRCode) -> (p : u1 = u2) ->
     ((x : IRdecode u1) -> f1 x = f2 (replace {p=IRdecode} p x)) ->
@@ -899,6 +1100,7 @@ parameters (idx : Type) (sty : idx -> Type)
   IRCsigmaCong fext u f1 u f2 Refl q = cong (IRCsigma u) (funExt q)
 
   public export
+  partial
   IRCpiCong : FunExt -> (u1 : IRCode) -> (f1 : IRdecode u1 -> IRCode) ->
     (u2 : IRCode) -> (f2 : IRdecode u2 -> IRCode) -> (p : u1 = u2) ->
     ((x : IRdecode u1) -> f1 x = f2 (replace {p=IRdecode} p x)) ->
@@ -919,13 +1121,13 @@ parameters (idx : Type) (sty : idx -> Type)
     public export
     partial
     IRcodeInv : FunExt -> IRCode' -> IRCode
-    IRcodeInv fext (IRCiota' i) = IRCiota i
-    IRcodeInv fext (IRCsigma' a v) =
+    IRcodeInv fext (InIRC' (Left i)) = IRCiota i
+    IRcodeInv fext (InIRC' (Right (Left (a ** v)))) =
       IRCsigma (IRcodeInv fext a)
         (\x => IRcodeInv fext
           (v (replace {p=IRFib} (IRcodeInvEq fext a)
                (tiTo (IRdecIso fext (IRcodeInv fext a)) x))))
-    IRcodeInv fext (IRCpi' a v) =
+    IRcodeInv fext (InIRC' (Right (Right (a ** v)))) =
       IRCpi (IRcodeInv fext a)
         (\x => IRcodeInv fext
           (v (replace {p=IRFib} (IRcodeInvEq fext a)
@@ -935,8 +1137,8 @@ parameters (idx : Type) (sty : idx -> Type)
     partial
     IRcodeInvEq : (fext : FunExt) -> (a : IRCode') ->
       IRtoC fext (IRcodeInv fext a) = a
-    IRcodeInvEq fext (IRCiota' i) = Refl
-    IRcodeInvEq fext (IRCsigma' a v) =
+    IRcodeInvEq fext (InIRC' (Left i)) = Refl
+    IRcodeInvEq fext (InIRC' (Right (Left (a ** v)))) =
       sigmaCodeCong fext
         (IRtoC fext (IRcodeInv fext a))
         (\w => IRtoC fext
@@ -954,7 +1156,7 @@ parameters (idx : Type) (sty : idx -> Type)
                      (tiFrom (IRdecIso fext (IRcodeInv fext a)) w)))))
             (cong (\w' => v (replace {p=IRFib} (IRcodeInvEq fext a) w'))
               (tiToFrom (IRdecIso fext (IRcodeInv fext a)) w)))
-    IRcodeInvEq fext (IRCpi' a v) =
+    IRcodeInvEq fext (InIRC' (Right (Right (a ** v)))) =
       piCodeCong fext
         (IRtoC fext (IRcodeInv fext a))
         (\w => IRtoC fext
@@ -999,19 +1201,29 @@ parameters (idx : Type) (sty : idx -> Type)
     partial
     IRtoCinj : (fext : FunExt) -> (u1, u2 : IRCode) ->
       IRtoC fext u1 = IRtoC fext u2 -> u1 = u2
-    IRtoCinj fext (IRCiota i1) (IRCiota i2) eq =
+    IRtoCinj fext (InIRC (Left i1)) (InIRC (Left i2)) eq =
       cong IRCiota (iotaCodeInj i1 i2 eq)
-    IRtoCinj fext (IRCiota _) (IRCsigma _ _) eq = absurd (cong isIotaC eq)
-    IRtoCinj fext (IRCiota _) (IRCpi _ _) eq = absurd (cong isIotaC eq)
-    IRtoCinj fext (IRCsigma _ _) (IRCiota _) eq = absurd (cong isIotaC eq)
-    IRtoCinj fext (IRCpi _ _) (IRCiota _) eq = absurd (cong isIotaC eq)
-    IRtoCinj fext (IRCsigma _ _) (IRCpi _ _) eq = absurd (cong isSigmaC eq)
-    IRtoCinj fext (IRCpi _ _) (IRCsigma _ _) eq = absurd (cong isSigmaC eq)
-    IRtoCinj fext (IRCsigma u1 f1) (IRCsigma u2 f2) eq =
+    IRtoCinj fext (InIRC (Left _)) (InIRC (Right (Left (_ ** _)))) eq =
+      absurd (the (True = False) (cong isIotaC eq))
+    IRtoCinj fext (InIRC (Left _)) (InIRC (Right (Right (_ ** _)))) eq =
+      absurd (the (True = False) (cong isIotaC eq))
+    IRtoCinj fext (InIRC (Right (Left (_ ** _)))) (InIRC (Left _)) eq =
+      absurd (the (False = True) (cong isIotaC eq))
+    IRtoCinj fext (InIRC (Right (Right (_ ** _)))) (InIRC (Left _)) eq =
+      absurd (the (False = True) (cong isIotaC eq))
+    IRtoCinj fext
+      (InIRC (Right (Left (_ ** _)))) (InIRC (Right (Right (_ ** _)))) eq =
+      absurd (the (True = False) (cong isSigmaC eq))
+    IRtoCinj fext
+      (InIRC (Right (Right (_ ** _)))) (InIRC (Right (Left (_ ** _)))) eq =
+      absurd (the (False = True) (cong isSigmaC eq))
+    IRtoCinj fext (InIRC (Right (Left (u1 ** f1))))
+        (InIRC (Right (Left (u2 ** f2)))) eq =
       IRCsigmaCong fext u1 f1 u2 f2
         (IRsigmaInjBase fext u1 f1 u2 f2 eq)
         (IRsigmaInjStep fext u1 f1 u2 f2 eq)
-    IRtoCinj fext (IRCpi u1 f1) (IRCpi u2 f2) eq =
+    IRtoCinj fext (InIRC (Right (Right (u1 ** f1))))
+        (InIRC (Right (Right (u2 ** f2)))) eq =
       IRCpiCong fext u1 f1 u2 f2
         (IRpiInjBase fext u1 f1 u2 f2 eq)
         (IRpiInjStep fext u1 f1 u2 f2 eq)
