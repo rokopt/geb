@@ -1449,20 +1449,184 @@ public export
 SmallIRF : {0 i, o : Type} -> SmallIR i o -> IRSlice i -> IRSlice o
 SmallIRF c x = (SmallIRPos c x ** SmallIRDec c x)
 
+-----------------------------------------------------
+-----------------------------------------------------
+---- Small IR codes as slice polynomial functors ----
+-----------------------------------------------------
+-----------------------------------------------------
+
+-- Lemma 2 / Definition 5 of
+-- [HancockMcBrideGhaniMalatestaAltenkirch2013], following
+-- `IR.toSlicePFunctor` in the Lean
+-- `Geb.Mathlib.Data.PFunctor.IndRec.Slice`.  A `SmallIR i o` code
+-- denotes a functor `Set/i -> Set/o`, and `SPFData i o` is a code for
+-- exactly such a functor, with `InterpSPFData` its interpretation.
+--
+-- The shapes of an `SPFData` are already fibred over the output
+-- index, so where the Lean carries a global shape set `A` with a map
+-- `q : A -> O`, here `spfdPos ec` is directly the fibre over `ec`.
+
+-- `InterpSPFData` is built as a composite, but it computes to the
+-- expected "a shape, and a choice of element for each direction".
+public export
+interpSPFDataPair : {dom, cod : Type} -> (spfd : SPFData dom cod) ->
+  (x : SliceObj dom) -> (ec : cod) ->
+  InterpSPFData spfd x ec =
+    (ep : spfdPos spfd ec ** SliceMorphism {a=dom} (spfdDir spfd ec ep) x)
+interpSPFDataPair spfd x ec = Refl
+
+-- `SIRiota t` has one shape, over the output index `t` alone, and no
+-- directions.
+public export
+smallIRtoSPFiota : {i, o : Type} -> o -> SPFData i o
+smallIRtoSPFiota {i} {o} t = SPFD (\ec => t = ec) (\_, _, _ => Void)
+
+-- `SIRsigma s k` is the coproduct, over the arity, of the subcodes'
+-- functors.
+public export
+smallIRtoSPFsigma : {i, o : Type} -> (s : Type) -> (s -> SPFData i o) ->
+  SPFData i o
+smallIRtoSPFsigma {i} {o} s sub = spfdSetCoproduct {b=s} {dom=i} {cod=o} sub
+
+-- `SIRdelta p k` is the coproduct, over the assignments `assign : p ->
+-- i` of input indices to the recursive fields, of the product of the
+-- subcode's functor at `assign` with the functor `assign` represents.
+-- That representable has a single shape, so the product's shapes are
+-- just the subcode's, and its directions are the subcode's together
+-- with the `p` recursive fields -- whence the `Either`.  (The Lean
+-- notes the same point:  its summand's shapes are `PUnit x (sub i).A`
+-- rather than `(sub i).A`, and the two are isomorphic.  Taking the
+-- product by hand here avoids that isomorphism.)
+public export
+smallIRtoSPFdelta : {i, o : Type} -> (p : Type) ->
+  ((p -> i) -> SPFData i o) -> SPFData i o
+smallIRtoSPFdelta {i} {o} p sub =
+  spfdSetCoproduct {b=(p -> i)} {dom=i} {cod=o} (\assign =>
+    SPFD
+      (spfdPos (sub assign))
+      (\ec, ep, ed =>
+        Either (q : p ** assign q = ed) (spfdDir (sub assign) ec ep ed)))
+
+public export
+smallIRtoSPFData : {i, o : Type} -> SmallIR i o -> SPFData i o
+smallIRtoSPFData (SIRiota t) = smallIRtoSPFiota t
+smallIRtoSPFData (SIRsigma s k) =
+  smallIRtoSPFsigma s (\a => smallIRtoSPFData (k a))
+smallIRtoSPFData (SIRdelta p k) =
+  smallIRtoSPFdelta p (\assign => smallIRtoSPFData (k assign))
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+---- Slice polynomial functors as small IR codes ----
+-----------------------------------------------------
+-----------------------------------------------------
+
+-- Lemma 1, following `IR.sliceCode` in the Lean.  Choose a shape,
+-- take a recursive field for each of its directions, check that the
+-- fields landed at the input indices the directions call for, and
+-- stop at the shape's output index.
+--
+-- The global shape set of an `SPFData` is `Sigma cod spfdPos`, and
+-- the global direction set of a shape is `Sigma dom (spfdDir ...)`,
+-- whose first component is the direction's input index -- which is
+-- what the `SIRsigma` constraint compares the assignment against.
+-- As in `smallIIRtoIR`, that equality is stated pointwise.
+public export
+spfDataToSmallIR : {dom, cod : Type} -> SPFData dom cod -> SmallIR dom cod
+spfDataToSmallIR {dom} {cod} spfd =
+  SIRsigma (ec : cod ** spfdPos spfd ec) (\a =>
+    SIRdelta (ed : dom ** spfdDir spfd (fst a) (snd a) ed) (\assign =>
+      SIRsigma
+        ((q : (ed : dom ** spfdDir spfd (fst a) (snd a) ed)) ->
+           assign q = fst q)
+        (\_ => SIRiota (fst a))))
+
+
+------------------------------------------------------
+------------------------------------------------------
+---- The translation preserves the interpretation ----
+------------------------------------------------------
+------------------------------------------------------
+
+-- One half of Lemma 2:  a node of the functor a code denotes is a
+-- node of the functor its translation denotes, at the same output
+-- index.  An `IRSlice i` whose decoding is a first projection is the
+-- same thing as a `SliceObj i`, so the statement is over the latter.
+--
+-- This is what lets a fixed point of the *translated* code stand in
+-- for a fixed point of the code itself.
+public export
+smallIRPosToSPF : {i, o : Type} -> (c : SmallIR i o) -> (x : SliceObj i) ->
+  (z : SmallIRPos c (Sigma {a=i} x ** DPair.fst)) ->
+  InterpSPFData (smallIRtoSPFData c) x
+    (SmallIRDec c (Sigma {a=i} x ** DPair.fst) z)
+smallIRPosToSPF (SIRiota t) x () = (Refl ** \_, v => void v)
+smallIRPosToSPF (SIRsigma s k) x (a ** z) =
+  InterpSPFnt
+    (smallIRtoSPFData (k a))
+    (smallIRtoSPFsigma s (\a' => smallIRtoSPFData (k a')))
+    (spfdSetCoproductInj (\a' => smallIRtoSPFData (k a')) a)
+    x
+    (SmallIRDec (k a) (Sigma {a=i} x ** DPair.fst) z)
+    (smallIRPosToSPF (k a) x z)
+smallIRPosToSPF (SIRdelta p k) x (g ** z) =
+  InterpSPFnt
+    (SPFD
+      (spfdPos (smallIRtoSPFData (k (\q => fst (g q)))))
+      (\ec, ep, ed =>
+        Either (q : p ** fst (g q) = ed)
+          (spfdDir (smallIRtoSPFData (k (\q => fst (g q)))) ec ep ed)))
+    (smallIRtoSPFdelta p (\assign => smallIRtoSPFData (k assign)))
+    (spfdSetCoproductInj
+      (\assign =>
+        SPFD
+          (spfdPos (smallIRtoSPFData (k assign)))
+          (\ec, ep, ed =>
+            Either (q : p ** assign q = ed)
+              (spfdDir (smallIRtoSPFData (k assign)) ec ep ed)))
+      (\q => fst (g q)))
+    x
+    (SmallIRDec (k (\q => fst (g q))) (Sigma {a=i} x ** DPair.fst) z)
+    (fst (smallIRPosToSPF (k (\q => fst (g q))) x z) **
+     \ed, e => case e of
+       Left (q ** eq) => replace {p=x} eq (snd (g q))
+       Right dq => snd (smallIRPosToSPF (k (\q => fst (g q))) x z) ed dq)
+
+
 -- The initial algebra of `SmallIRF c` for an endo-code `c`, giving
 -- the data type and its decoder simultaneously.
-mutual
-  public export
-  partial
-  data SmallIRMu : {0 i : Type} -> SmallIR i i -> Type where
-    InSIR : {0 i : Type} -> {c : SmallIR i i} ->
-      SmallIRPos c (SmallIRMu c ** SmallIRDecode c) -> SmallIRMu c
+--
+-- Defining this directly needs `partial`:  `SmallIRPos c X` cannot
+-- reduce while `c` is a variable, so the positivity checker rejects
+-- the fixed point.  Going through the translation avoids that
+-- entirely.  `SPFDmu` is an ordinary, total, strictly positive
+-- inductive family, so the fixed point of the *translated* code is
+-- total; taking its total space and reading the decoding off as the
+-- first projection recovers the pair `(mu, decode)` -- the `Set/i`
+-- object the fixed point is meant to be.
+public export
+SmallIRMu : {i : Type} -> SmallIR i i -> Type
+SmallIRMu {i} c = Sigma {a=i} (SPFDmu {x=i} (smallIRtoSPFData c))
 
-  public export
-  partial
-  SmallIRDecode : {0 i : Type} -> (c : SmallIR i i) -> SmallIRMu c -> i
-  SmallIRDecode c (InSIR p) =
-    SmallIRDec c (SmallIRMu c ** SmallIRDecode c) p
+public export
+SmallIRDecode : {i : Type} -> (c : SmallIR i i) -> SmallIRMu c -> i
+SmallIRDecode c = DPair.fst
+
+-- The algebra map, in place of the former data constructor:  a node
+-- whose recursive fields are already elements decodes to some index,
+-- and `smallIRPosToSPF` presents that node as a node of the
+-- translated functor at exactly that index, where `InSPFm` accepts
+-- it.  `SmallIRDecode c (InSIR z) = SmallIRDec c _ z` then holds by
+-- construction, since the decoding is the first projection.
+public export
+InSIR : {i : Type} -> {c : SmallIR i i} ->
+  SmallIRPos c (SmallIRMu c ** SmallIRDecode c) -> SmallIRMu c
+InSIR {i} {c} z =
+  (SmallIRDec c (SmallIRMu c ** SmallIRDecode c) z **
+   InSPFm {x=i} {spfd=(smallIRtoSPFData c)}
+     (SmallIRDec c (SmallIRMu c ** SmallIRDecode c) z)
+     (smallIRPosToSPF c (SPFDmu {x=i} (smallIRtoSPFData c)) z))
 
 
 -----------------------------------------------------
@@ -1568,43 +1732,36 @@ langProdValue x g h = Refl
 -----------------------------------------------
 
 public export
-partial
 Lang : Type
 Lang = SmallIRMu lang
 
 public export
-partial
 langValue : Lang -> Nat
 langValue = SmallIRDecode lang
 
 public export
-partial
 LFin : Nat -> Lang
-LFin n = InSIR (LTfin ** (n ** ()))
+LFin n = InSIR {c=lang} (LTfin ** (n ** ()))
 
 -- Note how the type of the summand family depends on `langValue b`:
 -- the bound's value, not the bound.
 public export
-partial
 LSum : (b : Lang) -> (Fin (langValue b) -> Lang) -> Lang
-LSum b h = InSIR (LTsum ** ((\_ => b) ** (h ** ())))
+LSum b h = InSIR {c=lang} (LTsum ** ((\_ => b) ** (h ** ())))
 
 public export
-partial
 LProd : (b : Lang) -> (Fin (langValue b) -> Lang) -> Lang
-LProd b h = InSIR (LTprod ** ((\_ => b) ** (h ** ())))
+LProd b h = InSIR {c=lang} (LTprod ** ((\_ => b) ** (h ** ())))
 
 -- `sum (n < 5) n`.  The paper writes the summand as `\ n -> in
 -- (fin', n, *)`, silently coercing `n : Fin 5` to a natural number;
 -- `finToNat` is that coercion made explicit.
 public export
-partial
 LangExample : Lang
 LangExample = LSum (LFin 5) (\n => LFin (finToNat n))
 
 -- The paper states this example decodes to 10, and it does.
 public export
-partial
 LangExampleValue : langValue LangExample = 10
 LangExampleValue = Refl
 
@@ -1755,21 +1912,20 @@ smallIIRtoIR (SIIRdelta p ix k) =
 -- paper's remark that the corresponding fixpoint gives the inductive
 -- family indexed by pairs in `Sigma D`.
 public export
-partial
-SmallIIRMu : {0 i : Type} -> {0 d : i -> Type} ->
+SmallIIRMu : {i : Type} -> {d : i -> Type} ->
   SmallIIR i d i d -> i -> Type
 SmallIIRMu c n =
   (x : SmallIRMu (smallIIRtoIR c) **
-   fst (SmallIRDecode (smallIIRtoIR c) x) = n)
+   DPair.fst (SmallIRDecode (smallIIRtoIR c) x) = n)
 
 -- ... and the decoder is the second component of that decoding,
 -- transported along the fibre's index proof.
 public export
-partial
-SmallIIRDecode : {0 i : Type} -> {0 d : i -> Type} ->
+SmallIIRDecode : {i : Type} -> {d : i -> Type} ->
   (c : SmallIIR i d i d) -> (n : i) -> SmallIIRMu c n -> d n
 SmallIIRDecode c n x =
-  replace {p=d} (snd x) (snd (SmallIRDecode (smallIIRtoIR c) (fst x)))
+  replace {p=d} (DPair.snd x)
+    (DPair.snd (SmallIRDecode (smallIIRtoIR c) (DPair.fst x)))
 
 
 -------------------------------------------------------------
@@ -1860,12 +2016,10 @@ CbvD = SIIRsigma Tm cbvBranch
 -- `CbvDom t` is the evidence that the evaluator terminates on `t`,
 -- and `cbvEval t` reads the resulting value off that evidence.
 public export
-partial
 CbvDom : Tm -> Type
 CbvDom = SmallIIRMu CbvD
 
 public export
-partial
 cbvEval : (t : Tm) -> CbvDom t -> Tm
 cbvEval = SmallIIRDecode CbvD
 
@@ -1921,17 +2075,14 @@ CbvId = TLam (TVar 0)
 -- with `InSIR`.  A value -- here a lambda -- reaches a `SIRiota`
 -- immediately, whose shape is `Unit`.
 public export
-partial
 cbvValueMu : (t : Tm) -> SmallIRMu (smallIIRtoIR CbvD)
-cbvValueMu t = InSIR (TLam t ** ())
+cbvValueMu t = InSIR {c=(smallIIRtoIR CbvD)} (TLam t ** ())
 
 public export
-partial
 cbvValueEvidence : (t : Tm) -> CbvDom (TLam t)
 cbvValueEvidence t = (cbvValueMu t ** Refl)
 
 public export
-partial
 cbvIdMu : Unit -> SmallIRMu (smallIIRtoIR CbvD)
 cbvIdMu _ = cbvValueMu (TVar 0)
 
@@ -1948,10 +2099,9 @@ CbvIdApp = TApp CbvId CbvId
 -- index the indexed code demanded.  In the indexed presentation those
 -- proofs were implicit in the family's index; here they are data.
 public export
-partial
 CbvIdAppEvidence : CbvDom CbvIdApp
 CbvIdAppEvidence =
-  (InSIR (CbvIdApp **
+  (InSIR {c=(smallIIRtoIR CbvD)} (CbvIdApp **
      (cbvIdMu ** ((\_ => Refl) **
        (cbvIdMu ** ((\_ => Refl) **
          (cbvIdMu ** ((\_ => Refl) ** ())))))))
@@ -1959,7 +2109,6 @@ CbvIdAppEvidence =
 
 -- ... and it evaluates to the identity.
 public export
-partial
 cbvIdAppValue : cbvEval CbvIdApp CbvIdAppEvidence = CbvId
 cbvIdAppValue = Refl
 
