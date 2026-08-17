@@ -1380,6 +1380,540 @@ public export
 IRnatPairDecodes : IRdecode IRnatIdx IRnatSty IRnatPair = (x : Nat ** Nat)
 IRnatPairDecodes = Refl
 
+---------------------------------------------
+---------------------------------------------
+---- Codes for small induction-recursion ----
+---------------------------------------------
+---------------------------------------------
+
+-- Definition 3 of [HancockMcBrideGhaniMalatestaAltenkirch2013].  A
+-- code describes an inductive-recursive definition whose recursive
+-- calls return elements of `i` and which itself decodes into `o`:
+--
+--   `SIRiota t`      -- stop, decoding to `t`
+--   `SIRsigma s k`   -- a non-recursive field of type `s`, then `k`
+--   `SIRdelta p k`   -- a `p`-indexed family of recursive fields;
+--                       `k` receives their *decoded values*
+--
+-- The paper writes these as `iota`, `sigma` and `delta`.  The whole
+-- point of `SIRdelta` is that its continuation sees the decodings, so
+-- later fields' types may depend on earlier fields' values.
+public export
+data SmallIR : (i, o : Type) -> Type where
+  SIRiota : {0 i, o : Type} -> o -> SmallIR i o
+  SIRsigma : {0 i, o : Type} ->
+    (s : Type) -> (s -> SmallIR i o) -> SmallIR i o
+  SIRdelta : {0 i, o : Type} ->
+    (p : Type) -> ((p -> i) -> SmallIR i o) -> SmallIR i o
+
+-- An object of the slice `Set/i`:  a type with a map to `i`.  The
+-- base category of the universe example is the case `i = Type`, where
+-- a map to `Type` is a family -- hence `IRFam`.
+public export
+IRSlice : Type -> Type
+IRSlice i = (ty : Type ** ty -> i)
+
+public export
+irFamIsSlice : (0 a : Type) -> (0 b : a -> Type) -> IRFam a b = IRSlice Type
+irFamIsSlice a b = Refl
+
+
+---------------------------------------
+---------------------------------------
+---- The functor denoted by a code ----
+---------------------------------------
+---------------------------------------
+
+-- The interpretation of a code as a functor `Set/i -> Set/o`, broken
+-- into its two components exactly as `IRUnivPos`/`IRUnivDec` were.
+-- This is the paper's `[[.]]_DS`.
+
+-- The shapes:  what one node of the described data type contains.
+public export
+SmallIRPos : {0 i, o : Type} -> SmallIR i o -> IRSlice i -> Type
+SmallIRPos (SIRiota _) x = Unit
+SmallIRPos (SIRsigma s k) x = (e : s ** SmallIRPos (k e) x)
+SmallIRPos (SIRdelta p k) x = (g : p -> fst x ** SmallIRPos (k (snd x . g)) x)
+
+-- The decoding of each shape.  In the `SIRdelta` case `snd x . g` is
+-- the tuple of decoded values of the recursive fields, which is what
+-- the continuation `k` was given.
+public export
+SmallIRDec : {0 i, o : Type} -> (c : SmallIR i o) -> (x : IRSlice i) ->
+  SmallIRPos c x -> o
+SmallIRDec (SIRiota t) x () = t
+SmallIRDec (SIRsigma s k) x (e ** r) = SmallIRDec (k e) x r
+SmallIRDec (SIRdelta p k) x (g ** r) = SmallIRDec (k (snd x . g)) x r
+
+public export
+SmallIRF : {0 i, o : Type} -> SmallIR i o -> IRSlice i -> IRSlice o
+SmallIRF c x = (SmallIRPos c x ** SmallIRDec c x)
+
+-- The initial algebra of `SmallIRF c` for an endo-code `c`, giving
+-- the data type and its decoder simultaneously.
+mutual
+  public export
+  partial
+  data SmallIRMu : {0 i : Type} -> SmallIR i i -> Type where
+    InSIR : {0 i : Type} -> {c : SmallIR i i} ->
+      SmallIRPos c (SmallIRMu c ** SmallIRDecode c) -> SmallIRMu c
+
+  public export
+  partial
+  SmallIRDecode : {0 i : Type} -> (c : SmallIR i i) -> SmallIRMu c -> i
+  SmallIRDecode c (InSIR p) =
+    SmallIRDec c (SmallIRMu c ** SmallIRDecode c) p
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+---- Example 2:  a language of sums and products ----
+-----------------------------------------------------
+-----------------------------------------------------
+
+-- Finitary summation and product, the paper's `sum` and `prod`.
+public export
+sumFin : (n : Nat) -> (Fin n -> Nat) -> Nat
+sumFin Z f = 0
+sumFin (S n) f = f FZ + sumFin n (f . FS)
+
+public export
+prodFin : (n : Nat) -> (Fin n -> Nat) -> Nat
+prodFin Z f = 1
+prodFin (S n) f = f FZ * prodFin n (f . FS)
+
+-- Numerical expressions closed under constants, finite sums and
+-- finite products, where each expression decodes to its value.  The
+-- values are needed to state the *types* of the sub-expressions:  a
+-- sum ranges over `Fin` of the value of its bound, so the data and
+-- the decoding must be defined together.
+public export
+data LangTag : Type where
+  LTfin : LangTag
+  LTsum : LangTag
+  LTprod : LangTag
+
+public export
+langK : LangTag -> SmallIR Nat Nat
+langK LTfin =
+  SIRsigma Nat (\n => SIRiota n)
+langK LTsum =
+  SIRdelta Unit (\n =>
+    SIRdelta (Fin (n ())) (\f => SIRiota (sumFin (n ()) f)))
+langK LTprod =
+  SIRdelta Unit (\n =>
+    SIRdelta (Fin (n ())) (\f => SIRiota (prodFin (n ()) f)))
+
+public export
+lang : SmallIR Nat Nat
+lang = SIRsigma LangTag langK
+
+
+----------------------------------
+----------------------------------
+---- What the code unfolds to ----
+----------------------------------
+----------------------------------
+
+-- The paper's code read back out in ordinary type-theoretic language.
+-- Each of these holds by `Refl`:  they are not a separate definition
+-- of the language but a machine-checked reading of `lang`.
+
+-- A constant node carries a literal, and decodes to it.
+public export
+langFinNode : (x : IRSlice Nat) ->
+  SmallIRPos (langK LTfin) x = (n : Nat ** Unit)
+langFinNode x = Refl
+
+public export
+langFinValue : (x : IRSlice Nat) -> (n : Nat) ->
+  SmallIRDec (langK LTfin) x (n ** ()) = n
+langFinValue x n = Refl
+
+-- A sum node carries one recursive sub-expression `g` -- the bound --
+-- and then a family of sub-expressions indexed by `Fin` of the
+-- bound's *value*.  `SIRdelta Unit` is the paper's `delta 1`:  a
+-- single recursive field, presented as a function from `Unit`.
+public export
+langSumNode : (x : IRSlice Nat) ->
+  SmallIRPos (langK LTsum) x =
+    (g : Unit -> fst x ** (h : Fin (snd x (g ())) -> fst x ** Unit))
+langSumNode x = Refl
+
+public export
+langSumValue : (x : IRSlice Nat) -> (g : Unit -> fst x) ->
+  (h : Fin (snd x (g ())) -> fst x) ->
+  SmallIRDec (langK LTsum) x (g ** (h ** ())) =
+    sumFin (snd x (g ())) (snd x . h)
+langSumValue x g h = Refl
+
+public export
+langProdNode : (x : IRSlice Nat) ->
+  SmallIRPos (langK LTprod) x =
+    (g : Unit -> fst x ** (h : Fin (snd x (g ())) -> fst x ** Unit))
+langProdNode x = Refl
+
+public export
+langProdValue : (x : IRSlice Nat) -> (g : Unit -> fst x) ->
+  (h : Fin (snd x (g ())) -> fst x) ->
+  SmallIRDec (langK LTprod) x (g ** (h ** ())) =
+    prodFin (snd x (g ())) (snd x . h)
+langProdValue x g h = Refl
+
+
+-----------------------------------------------
+-----------------------------------------------
+---- The language, and the paper's example ----
+-----------------------------------------------
+-----------------------------------------------
+
+public export
+partial
+Lang : Type
+Lang = SmallIRMu lang
+
+public export
+partial
+langValue : Lang -> Nat
+langValue = SmallIRDecode lang
+
+public export
+partial
+LFin : Nat -> Lang
+LFin n = InSIR (LTfin ** (n ** ()))
+
+-- Note how the type of the summand family depends on `langValue b`:
+-- the bound's value, not the bound.
+public export
+partial
+LSum : (b : Lang) -> (Fin (langValue b) -> Lang) -> Lang
+LSum b h = InSIR (LTsum ** ((\_ => b) ** (h ** ())))
+
+public export
+partial
+LProd : (b : Lang) -> (Fin (langValue b) -> Lang) -> Lang
+LProd b h = InSIR (LTprod ** ((\_ => b) ** (h ** ())))
+
+-- `sum (n < 5) n`.  The paper writes the summand as `\ n -> in
+-- (fin', n, *)`, silently coercing `n : Fin 5` to a natural number;
+-- `finToNat` is that coercion made explicit.
+public export
+partial
+LangExample : Lang
+LangExample = LSum (LFin 5) (\n => LFin (finToNat n))
+
+-- The paper states this example decodes to 10, and it does.
+public export
+partial
+LangExampleValue : langValue LangExample = 10
+LangExampleValue = Refl
+
+-----------------------------------------------------
+-----------------------------------------------------
+---- Codes for small indexed induction-recursion ----
+-----------------------------------------------------
+-----------------------------------------------------
+
+-- Section 6 of [HancockMcBrideGhaniMalatestaAltenkirch2013].  Where a
+-- `SmallIR` code describes one inductive-recursive definition, a
+-- `SmallIIR` code describes a whole *family* of them, indexed by `i`
+-- on the way in and by `j` on the way out, with `d` and `e` giving
+-- the type each decodes into at each index.
+--
+-- Two things change from `SmallIR`:  `SIIRiota` now names the output
+-- index it lands at, as well as the value it decodes to; and
+-- `SIIRdelta` carries an extra `ix`, choosing the input index of each
+-- recursive field.  Ordinary `SmallIR` is the case where `i` and `j`
+-- are singletons.
+public export
+data SmallIIR : (i : Type) -> (i -> Type) -> (j : Type) -> (j -> Type) ->
+    Type where
+  SIIRiota : {0 i : Type} -> {0 d : i -> Type} ->
+    {0 j : Type} -> {0 e : j -> Type} ->
+    (je : (m : j ** e m)) -> SmallIIR i d j e
+  SIIRsigma : {0 i : Type} -> {0 d : i -> Type} ->
+    {0 j : Type} -> {0 e : j -> Type} ->
+    (s : Type) -> (s -> SmallIIR i d j e) -> SmallIIR i d j e
+  SIIRdelta : {0 i : Type} -> {0 d : i -> Type} ->
+    {0 j : Type} -> {0 e : j -> Type} ->
+    (p : Type) -> (ix : p -> i) ->
+    (((q : p) -> d (ix q)) -> SmallIIR i d j e) -> SmallIIR i d j e
+
+-- The paper's `delta_1`:  a single recursive field at index `n`,
+-- presented as a `Unit`-indexed family.  Its continuation receives
+-- that field's decoded value, which is what lets the *shape* of the
+-- rest of the node depend on it.
+public export
+siirDelta1 : {0 i : Type} -> {0 d : i -> Type} ->
+  {0 j : Type} -> {0 e : j -> Type} ->
+  (n : i) -> (d n -> SmallIIR i d j e) -> SmallIIR i d j e
+siirDelta1 n k = SIIRdelta Unit (\_ => n) (\dv => k (dv ()))
+
+
+------------------------------------------------------
+------------------------------------------------------
+---- The base category:  slices over a sigma type ----
+------------------------------------------------------
+------------------------------------------------------
+
+-- An object is a slice over `d n` for each index `n`.
+public export
+IIRSlice : (i : Type) -> (i -> Type) -> Type
+IIRSlice i d = (n : i) -> IRSlice (d n)
+
+-- Read fibrewise instead, that is a family over `i` and then over
+-- `d n` -- which is exactly a slice over the total space `Sigma i d`,
+-- up to currying.  This is the sense in which indexed
+-- induction-recursion is about functors between slices over sigma
+-- types.
+public export
+IIRFam : (i : Type) -> (i -> Type) -> Type
+IIRFam i d = (n : i) -> d n -> Type
+
+public export
+iirFamSigmaIso : FunExt -> (i : Type) -> (d : i -> Type) ->
+  TIso (IIRFam i d) (SliceObj (n : i ** d n))
+iirFamSigmaIso fext i d =
+  MkTIso
+    (\f, x => f (fst x) (snd x))
+    (\g, n, dv => g (n ** dv))
+    (\_ => Refl)
+    (\g => funExt $ \x => cong g (sym $ dpEqPat {dp=x}))
+
+
+------------------------------------------------
+------------------------------------------------
+---- The functor denoted by an indexed code ----
+------------------------------------------------
+------------------------------------------------
+
+-- The shapes, at each output index.  `SIIRiota` contributes only the
+-- proof that it landed at the index asked for.
+public export
+SmallIIRPos : {0 i : Type} -> {0 d : i -> Type} ->
+  {0 j : Type} -> {0 e : j -> Type} ->
+  SmallIIR i d j e -> IIRSlice i d -> j -> Type
+SmallIIRPos (SIIRiota (m ** _)) g n = m = n
+SmallIIRPos (SIIRsigma s k) g n = (a : s ** SmallIIRPos (k a) g n)
+SmallIIRPos (SIIRdelta p ix k) g n =
+  (ig : (q : p) -> fst (g (ix q)) **
+   SmallIIRPos (k (\q => snd (g (ix q)) (ig q))) g n)
+
+-- The decoding.  Transporting the `SIIRiota` value along its index
+-- proof is the paper's `\ q -> . q e`.
+public export
+SmallIIRDec : {0 i : Type} -> {0 d : i -> Type} ->
+  {0 j : Type} -> {0 e : j -> Type} ->
+  (c : SmallIIR i d j e) -> (g : IIRSlice i d) -> (n : j) ->
+  SmallIIRPos c g n -> e n
+SmallIIRDec (SIIRiota (m ** ev)) g n q = replace {p=e} q ev
+SmallIIRDec (SIIRsigma s k) g n (a ** r) = SmallIIRDec (k a) g n r
+SmallIIRDec (SIIRdelta p ix k) g n (ig ** r) =
+  SmallIIRDec (k (\q => snd (g (ix q)) (ig q))) g n r
+
+public export
+SmallIIRF : {0 i : Type} -> {0 d : i -> Type} ->
+  {0 j : Type} -> {0 e : j -> Type} ->
+  SmallIIR i d j e -> IIRSlice i d -> IIRSlice j e
+SmallIIRF c g n = (SmallIIRPos c g n ** SmallIIRDec c g n)
+
+-- The initial algebra of an endo-code:  an indexed family together
+-- with its decoder, defined simultaneously.
+mutual
+  public export
+  partial
+  data SmallIIRMu : {0 i : Type} -> {0 d : i -> Type} ->
+      SmallIIR i d i d -> i -> Type where
+    InSIIR : {0 i : Type} -> {0 d : i -> Type} ->
+      {c : SmallIIR i d i d} -> {n : i} ->
+      SmallIIRPos c (\m => (SmallIIRMu c m ** SmallIIRDecode c m)) n ->
+      SmallIIRMu c n
+
+  public export
+  partial
+  SmallIIRDecode : {0 i : Type} -> {0 d : i -> Type} ->
+    (c : SmallIIR i d i d) -> (n : i) -> SmallIIRMu c n -> d n
+  SmallIIRDecode c n (InSIIR p) =
+    SmallIIRDec c (\m => (SmallIIRMu c m ** SmallIIRDecode c m)) n p
+
+
+-------------------------------------------------------------
+-------------------------------------------------------------
+---- Example 3:  lambda terms and de Bruijn substitution ----
+-------------------------------------------------------------
+-------------------------------------------------------------
+
+public export
+data Tm : Type where
+  TVar : Nat -> Tm
+  TApp : Tm -> Tm -> Tm
+  TLam : Tm -> Tm
+
+-- Raise the free variables at or above `c` by one.
+public export
+tmShift : Nat -> Tm -> Tm
+tmShift c (TVar k) = if k < c then TVar k else TVar (S k)
+tmShift c (TApp f s) = TApp (tmShift c f) (tmShift c s)
+tmShift c (TLam t) = TLam (tmShift (S c) t)
+
+-- Substitute `s` for the variable `n`, decrementing the free
+-- variables above it, since the binder `n` is being removed.
+public export
+tmSubst : Nat -> Tm -> Tm -> Tm
+tmSubst n s (TVar k) =
+  case compare k n of
+    LT => TVar k
+    EQ => s
+    GT => TVar (pred k)
+tmSubst n s (TApp f t) = TApp (tmSubst n s f) (tmSubst n s t)
+tmSubst n s (TLam t) = TLam (tmSubst (S n) (tmShift 0 s) t)
+
+public export
+subst0 : Tm -> Tm -> Tm
+subst0 s t = tmSubst 0 s t
+
+
+-----------------------------------------------------------------
+-----------------------------------------------------------------
+---- Example 3:  the Bove-Capretta domain of a cbv evaluator ----
+-----------------------------------------------------------------
+-----------------------------------------------------------------
+
+-- The call-by-value evaluator we would like to write is
+--
+--   cbv (var x) = var x
+--   cbv (lam t) = lam t
+--   cbv (app f s) with cbv f
+--     | lam t = cbv (subst0 (cbv s) t)
+--     | f'    = app f' (cbv s)
+--
+-- which is not structurally recursive:  in the `app` case the third
+-- recursive call is made at `subst0 (cbv s) t`, a term built from the
+-- *results* of the first two.  The Bove-Capretta method makes the
+-- domain of such a function an inductive family; because the domain
+-- here mentions the results, it must be defined simultaneously with
+-- the evaluation -- a job for induction-recursion.
+--
+-- Both indices are `Tm` and both decodings are the constant family
+-- `\ _ => Tm`:  the index is the term being evaluated, and the
+-- decoded value is the term it evaluates to.
+public export
+CbvBranchTy : Type
+CbvBranchTy = SmallIIR Tm (\_ => Tm) Tm (\_ => Tm)
+
+-- The `app` case, once the function part's value `fv` is known.  This
+-- is the branch the paper writes as a `with`:  the code taken depends
+-- on a value delivered by an earlier recursive field.
+public export
+cbvApp : (f, s : Tm) -> Tm -> CbvBranchTy
+cbvApp f s (TLam t) =
+  siirDelta1 s (\sv =>
+    siirDelta1 (subst0 sv t) (\tv => SIIRiota (TApp f s ** tv)))
+cbvApp f s fv =
+  siirDelta1 s (\sv => SIIRiota (TApp f s ** TApp fv sv))
+
+public export
+cbvBranch : Tm -> CbvBranchTy
+cbvBranch (TVar x) = SIIRiota (TVar x ** TVar x)
+cbvBranch (TLam t) = SIIRiota (TLam t ** TLam t)
+cbvBranch (TApp f s) = siirDelta1 f (cbvApp f s)
+
+public export
+CbvD : CbvBranchTy
+CbvD = SIIRsigma Tm cbvBranch
+
+-- `CbvDom t` is the evidence that the evaluator terminates on `t`,
+-- and `cbvEval t` reads the resulting value off that evidence.
+public export
+partial
+CbvDom : Tm -> Type
+CbvDom = SmallIIRMu CbvD
+
+public export
+partial
+cbvEval : (t : Tm) -> CbvDom t -> Tm
+cbvEval = SmallIIRDecode CbvD
+
+
+------------------------------------------
+------------------------------------------
+---- What the indexed code unfolds to ----
+------------------------------------------
+------------------------------------------
+
+-- As with `lang`, these hold by `Refl` and so are a checked reading
+-- of the code rather than a second definition of it.
+
+-- A value -- a variable or a lambda -- needs no recursive evidence,
+-- only the proof that it is the term being evaluated.
+public export
+cbvLamNode : (g : IIRSlice Tm (\_ => Tm)) -> (t, n : Tm) ->
+  SmallIIRPos (cbvBranch (TLam t)) g n = (TLam t = n)
+cbvLamNode g t n = Refl
+
+-- An application node holds evidence for the function part, and then
+-- evidence whose *shape* is chosen by that part's value.
+public export
+cbvAppNode : (g : IIRSlice Tm (\_ => Tm)) -> (f, s, n : Tm) ->
+  SmallIIRPos (cbvBranch (TApp f s)) g n =
+    (ig : Unit -> fst (g f) **
+     SmallIIRPos (cbvApp f s (snd (g f) (ig ()))) g n)
+cbvAppNode g f s n = Refl
+
+-- When the function part evaluates to a lambda, the node continues
+-- with evidence for the argument and then for the substituted body,
+-- at an index built from the argument's value.
+public export
+cbvBetaNode : (g : IIRSlice Tm (\_ => Tm)) -> (f, s, t, n : Tm) ->
+  SmallIIRPos (cbvApp f s (TLam t)) g n =
+    (jg : Unit -> fst (g s) **
+     (kg : Unit -> fst (g (subst0 (snd (g s) (jg ())) t)) **
+      TApp f s = n))
+cbvBetaNode g f s t n = Refl
+
+
+---------------------------------------------------------------
+---------------------------------------------------------------
+---- Example 3:  evaluating the identity applied to itself ----
+---------------------------------------------------------------
+---------------------------------------------------------------
+
+public export
+CbvId : Tm
+CbvId = TLam (TVar 0)
+
+public export
+partial
+cbvValueEvidence : (t : Tm) -> CbvDom (TLam t)
+cbvValueEvidence t = InSIIR (TLam t ** Refl)
+
+public export
+partial
+cbvIdEvidence : Unit -> CbvDom CbvId
+cbvIdEvidence _ = cbvValueEvidence (TVar 0)
+
+public export
+CbvIdApp : Tm
+CbvIdApp = TApp CbvId CbvId
+
+-- Evidence that the evaluator terminates on `(\x. x) (\x. x)`:  one
+-- piece for the function part, one for the argument, and one for the
+-- substituted body, which here is the identity again.
+public export
+partial
+CbvIdAppEvidence : CbvDom CbvIdApp
+CbvIdAppEvidence =
+  InSIIR (CbvIdApp **
+    (cbvIdEvidence ** (cbvIdEvidence ** (cbvIdEvidence ** Refl))))
+
+-- ... and it evaluates to the identity.
+public export
+partial
+cbvIdAppValue : cbvEval CbvIdApp CbvIdAppEvidence = CbvId
+cbvIdAppValue = Refl
+
+
+
 mutual
   public export
   T0StarterT : Type
