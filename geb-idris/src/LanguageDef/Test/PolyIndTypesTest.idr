@@ -1380,6 +1380,235 @@ public export
 IRnatPairDecodes : IRdecode IRnatIdx IRnatSty IRnatPair = (x : Nat ** Nat)
 IRnatPairDecodes = Refl
 
+---------------------------------------------
+---------------------------------------------
+---- Codes for small induction-recursion ----
+---------------------------------------------
+---------------------------------------------
+
+-- Definition 3 of [HancockMcBrideGhaniMalatestaAltenkirch2013].  A
+-- code describes an inductive-recursive definition whose recursive
+-- calls return elements of `i` and which itself decodes into `o`:
+--
+--   `SIRiota t`      -- stop, decoding to `t`
+--   `SIRsigma s k`   -- a non-recursive field of type `s`, then `k`
+--   `SIRdelta p k`   -- a `p`-indexed family of recursive fields;
+--                       `k` receives their *decoded values*
+--
+-- The paper writes these as `iota`, `sigma` and `delta`.  The whole
+-- point of `SIRdelta` is that its continuation sees the decodings, so
+-- later fields' types may depend on earlier fields' values.
+public export
+data SmallIR : (i, o : Type) -> Type where
+  SIRiota : {0 i, o : Type} -> o -> SmallIR i o
+  SIRsigma : {0 i, o : Type} ->
+    (s : Type) -> (s -> SmallIR i o) -> SmallIR i o
+  SIRdelta : {0 i, o : Type} ->
+    (p : Type) -> ((p -> i) -> SmallIR i o) -> SmallIR i o
+
+-- An object of the slice `Set/i`:  a type with a map to `i`.  The
+-- base category of the universe example is the case `i = Type`, where
+-- a map to `Type` is a family -- hence `IRFam`.
+public export
+IRSlice : Type -> Type
+IRSlice i = (ty : Type ** ty -> i)
+
+public export
+irFamIsSlice : (0 a : Type) -> (0 b : a -> Type) -> IRFam a b = IRSlice Type
+irFamIsSlice a b = Refl
+
+
+---------------------------------------
+---------------------------------------
+---- The functor denoted by a code ----
+---------------------------------------
+---------------------------------------
+
+-- The interpretation of a code as a functor `Set/i -> Set/o`, broken
+-- into its two components exactly as `IRUnivPos`/`IRUnivDec` were.
+-- This is the paper's `[[.]]_DS`.
+
+-- The shapes:  what one node of the described data type contains.
+public export
+SmallIRPos : {0 i, o : Type} -> SmallIR i o -> IRSlice i -> Type
+SmallIRPos (SIRiota _) x = Unit
+SmallIRPos (SIRsigma s k) x = (e : s ** SmallIRPos (k e) x)
+SmallIRPos (SIRdelta p k) x = (g : p -> fst x ** SmallIRPos (k (snd x . g)) x)
+
+-- The decoding of each shape.  In the `SIRdelta` case `snd x . g` is
+-- the tuple of decoded values of the recursive fields, which is what
+-- the continuation `k` was given.
+public export
+SmallIRDec : {0 i, o : Type} -> (c : SmallIR i o) -> (x : IRSlice i) ->
+  SmallIRPos c x -> o
+SmallIRDec (SIRiota t) x () = t
+SmallIRDec (SIRsigma s k) x (e ** r) = SmallIRDec (k e) x r
+SmallIRDec (SIRdelta p k) x (g ** r) = SmallIRDec (k (snd x . g)) x r
+
+public export
+SmallIRF : {0 i, o : Type} -> SmallIR i o -> IRSlice i -> IRSlice o
+SmallIRF c x = (SmallIRPos c x ** SmallIRDec c x)
+
+-- The initial algebra of `SmallIRF c` for an endo-code `c`, giving
+-- the data type and its decoder simultaneously.
+mutual
+  public export
+  partial
+  data SmallIRMu : {0 i : Type} -> SmallIR i i -> Type where
+    InSIR : {0 i : Type} -> {c : SmallIR i i} ->
+      SmallIRPos c (SmallIRMu c ** SmallIRDecode c) -> SmallIRMu c
+
+  public export
+  partial
+  SmallIRDecode : {0 i : Type} -> (c : SmallIR i i) -> SmallIRMu c -> i
+  SmallIRDecode c (InSIR p) =
+    SmallIRDec c (SmallIRMu c ** SmallIRDecode c) p
+
+
+-----------------------------------------------------
+-----------------------------------------------------
+---- Example 2:  a language of sums and products ----
+-----------------------------------------------------
+-----------------------------------------------------
+
+-- Finitary summation and product, the paper's `sum` and `prod`.
+public export
+sumFin : (n : Nat) -> (Fin n -> Nat) -> Nat
+sumFin Z f = 0
+sumFin (S n) f = f FZ + sumFin n (f . FS)
+
+public export
+prodFin : (n : Nat) -> (Fin n -> Nat) -> Nat
+prodFin Z f = 1
+prodFin (S n) f = f FZ * prodFin n (f . FS)
+
+-- Numerical expressions closed under constants, finite sums and
+-- finite products, where each expression decodes to its value.  The
+-- values are needed to state the *types* of the sub-expressions:  a
+-- sum ranges over `Fin` of the value of its bound, so the data and
+-- the decoding must be defined together.
+public export
+data LangTag : Type where
+  LTfin : LangTag
+  LTsum : LangTag
+  LTprod : LangTag
+
+public export
+langK : LangTag -> SmallIR Nat Nat
+langK LTfin =
+  SIRsigma Nat (\n => SIRiota n)
+langK LTsum =
+  SIRdelta Unit (\n =>
+    SIRdelta (Fin (n ())) (\f => SIRiota (sumFin (n ()) f)))
+langK LTprod =
+  SIRdelta Unit (\n =>
+    SIRdelta (Fin (n ())) (\f => SIRiota (prodFin (n ()) f)))
+
+public export
+lang : SmallIR Nat Nat
+lang = SIRsigma LangTag langK
+
+
+----------------------------------
+----------------------------------
+---- What the code unfolds to ----
+----------------------------------
+----------------------------------
+
+-- The paper's code read back out in ordinary type-theoretic language.
+-- Each of these holds by `Refl`:  they are not a separate definition
+-- of the language but a machine-checked reading of `lang`.
+
+-- A constant node carries a literal, and decodes to it.
+public export
+langFinNode : (x : IRSlice Nat) ->
+  SmallIRPos (langK LTfin) x = (n : Nat ** Unit)
+langFinNode x = Refl
+
+public export
+langFinValue : (x : IRSlice Nat) -> (n : Nat) ->
+  SmallIRDec (langK LTfin) x (n ** ()) = n
+langFinValue x n = Refl
+
+-- A sum node carries one recursive sub-expression `g` -- the bound --
+-- and then a family of sub-expressions indexed by `Fin` of the
+-- bound's *value*.  `SIRdelta Unit` is the paper's `delta 1`:  a
+-- single recursive field, presented as a function from `Unit`.
+public export
+langSumNode : (x : IRSlice Nat) ->
+  SmallIRPos (langK LTsum) x =
+    (g : Unit -> fst x ** (h : Fin (snd x (g ())) -> fst x ** Unit))
+langSumNode x = Refl
+
+public export
+langSumValue : (x : IRSlice Nat) -> (g : Unit -> fst x) ->
+  (h : Fin (snd x (g ())) -> fst x) ->
+  SmallIRDec (langK LTsum) x (g ** (h ** ())) =
+    sumFin (snd x (g ())) (snd x . h)
+langSumValue x g h = Refl
+
+public export
+langProdNode : (x : IRSlice Nat) ->
+  SmallIRPos (langK LTprod) x =
+    (g : Unit -> fst x ** (h : Fin (snd x (g ())) -> fst x ** Unit))
+langProdNode x = Refl
+
+public export
+langProdValue : (x : IRSlice Nat) -> (g : Unit -> fst x) ->
+  (h : Fin (snd x (g ())) -> fst x) ->
+  SmallIRDec (langK LTprod) x (g ** (h ** ())) =
+    prodFin (snd x (g ())) (snd x . h)
+langProdValue x g h = Refl
+
+
+-----------------------------------------------
+-----------------------------------------------
+---- The language, and the paper's example ----
+-----------------------------------------------
+-----------------------------------------------
+
+public export
+partial
+Lang : Type
+Lang = SmallIRMu lang
+
+public export
+partial
+langValue : Lang -> Nat
+langValue = SmallIRDecode lang
+
+public export
+partial
+LFin : Nat -> Lang
+LFin n = InSIR (LTfin ** (n ** ()))
+
+-- Note how the type of the summand family depends on `langValue b`:
+-- the bound's value, not the bound.
+public export
+partial
+LSum : (b : Lang) -> (Fin (langValue b) -> Lang) -> Lang
+LSum b h = InSIR (LTsum ** ((\_ => b) ** (h ** ())))
+
+public export
+partial
+LProd : (b : Lang) -> (Fin (langValue b) -> Lang) -> Lang
+LProd b h = InSIR (LTprod ** ((\_ => b) ** (h ** ())))
+
+-- `sum (n < 5) n`.  The paper writes the summand as `\ n -> in
+-- (fin', n, *)`, silently coercing `n : Fin 5` to a natural number;
+-- `finToNat` is that coercion made explicit.
+public export
+partial
+LangExample : Lang
+LangExample = LSum (LFin 5) (\n => LFin (finToNat n))
+
+-- The paper states this example decodes to 10, and it does.
+public export
+partial
+LangExampleValue : langValue LangExample = 10
+LangExampleValue = Refl
+
+
 mutual
   public export
   T0StarterT : Type
