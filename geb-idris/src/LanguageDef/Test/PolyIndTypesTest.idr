@@ -385,6 +385,19 @@ TestPRA = PRAD TestPRAT1 TestPRAdir
 
 mutual
   public export
+  data IRCode : Type where
+    IRCnat : IRCode
+    IRCsigma : (u : IRCode) -> (IRdecode u -> IRCode) -> IRCode
+    IRCpi : (u : IRCode) -> (IRdecode u -> IRCode) -> IRCode
+
+  public export
+  IRdecode : IRCode -> Type
+  IRdecode IRCnat = Nat
+  IRdecode (IRCsigma u f) = Sigma {a=(IRdecode u)} (IRdecode . f)
+  IRdecode (IRCpi u f) = Pi {a=(IRdecode u)} (IRdecode . f)
+
+mutual
+  public export
   T0StarterT : Type
   T0StarterT = Unit
 
