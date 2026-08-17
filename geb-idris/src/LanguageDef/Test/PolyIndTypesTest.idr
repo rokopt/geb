@@ -398,6 +398,40 @@ mutual
 
 mutual
   public export
+  partial
+  data IRCode' : Type where
+    IRCnat' :
+      IRCode'
+    IRCsigma' :
+      (u : IRCode') -> ((t : IRTerm ** IRfib t = u) -> IRCode') -> IRCode'
+    IRCpi' :
+      (u : IRCode') -> ((t : IRTerm ** IRfib t = u) -> IRCode') -> IRCode'
+
+  public export
+  partial
+  data IRTerm : Type where
+    IRTnat :
+      Nat -> IRTerm
+    IRTsigma :
+      (u : IRCode') -> (v : (t : IRTerm ** IRfib t = u) -> IRCode') ->
+      (t : IRTerm) -> (e : IRfib t = u) ->
+      (t' : IRTerm) -> (IRfib t' = v (t ** e)) ->
+      IRTerm
+    IRTpi :
+      (u : IRCode') -> (v : (t : IRTerm ** IRfib t = u) -> IRCode') ->
+      ((t : IRTerm) -> (e : IRfib t = u) ->
+       (t' : IRTerm ** (IRfib t' = v (t ** e)))) ->
+      IRTerm
+
+  public export
+  partial
+  IRfib : IRTerm -> IRCode'
+  IRfib (IRTnat _) = IRCnat'
+  IRfib (IRTsigma u v _ _ _ _) = IRCsigma' u v
+  IRfib (IRTpi u v _) = IRCpi' u v
+
+mutual
+  public export
   T0StarterT : Type
   T0StarterT = Unit
 
