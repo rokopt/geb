@@ -9,6 +9,6 @@ module
 # Geb.Cslib — upstream-eligible content for CSLib
 
 Modules under this namespace are intended for eventual upstream
-extraction to CSLib and import only from `Mathlib.*`, `Cslib.*`,
-or `Geb.Cslib.*`.
+extraction to CSLib and import only from `Mathlib.*`, `Batteries.*`,
+`Cslib.*`, `Geb.Cslib.*`, `Geb.Mathlib.*` or `GebLang.*`.
 -/

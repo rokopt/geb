@@ -19,6 +19,632 @@ index 60ce9f4..6bf7832 100644
  
  /-- The retraction law for the rose spelling: printing a rose tree and
  parsing the result returns that tree. -/
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Degenerate.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Degenerate.lean
+index edf6251..80a0fe7 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Degenerate.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Degenerate.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.Computability.CobhamFoldProto.Expr
+@@ -81,16 +82,16 @@ namespace Geb.CobhamFold
+ open Cobham RankedAlphabet
+ 
+ /-- The empty encoding of the terminal carrier. -/
+-def encUnit : Unit → Fin 0 → Bool := fun _ ↦ Fin.elim0
++@[nolint unusedArguments] def encUnit : Unit → Fin 0 → Bool := fun _ ↦ Fin.elim0
+ 
+ /-- The inverse of the empty encoding. -/
+-def decUnit : (Fin 0 → Bool) → Unit := fun _ ↦ ()
++@[nolint unusedArguments] def decUnit : (Fin 0 → Bool) → Unit := fun _ ↦ ()
+ 
+ /-- The empty encoding's retraction, which holds by `Unit`'s eta. -/
+ theorem decUnit_encUnit : ∀ a : Unit, decUnit (encUnit a) = a := fun _ ↦ rfl
+ 
+ /-- The terminal algebra of a ranked alphabet. -/
+-def algUnit (R : RankedAlphabet) :
++@[nolint unusedArguments] def algUnit (R : RankedAlphabet) :
+     (i : Fin R.card) → (Fin (R.arity i) → Unit) → Unit := fun _ _ ↦ ()
+ 
+ /-- The multiplier one meets the bound at `p = 0`. -/
+@@ -137,16 +138,16 @@ theorem dropCountF_unit (R : RankedAlphabet) (b : Bool) (s : FoldScan Unit) :
+   · dsimp only
+     rw [arOf_eq_map_symOf]
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, decide_eq_true hlen]
++    · rw [if_pos hlen, decide_eq_true hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none => rfl
+       | some i =>
+         rw [Option.map_some]
+         dsimp only
+         by_cases hle : R.arity i ≤ stack.length
+-        · rw [ite_eq_left hle, decide_eq_true hle, Nat.one_mul]
+-        · rw [ite_eq_right hle, decide_eq_false hle]
+-    · rw [ite_eq_right hlen, decide_eq_false hlen]
++        · rw [if_pos hle, decide_eq_true hle, Nat.one_mul]
++        · rw [if_neg hle, decide_eq_false hle]
++    · rw [if_neg hlen, decide_eq_false hlen]
+ 
+ /-- At `p = 0` the bits a step prepends are the recognizer's: an entry is the
+ single `true` the pending count pushes. -/
+@@ -160,24 +161,24 @@ theorem nextPrefixF_unit (R : RankedAlphabet) (b : Bool) (s : FoldScan Unit) :
+   · dsimp only
+     rw [arOf_eq_map_symOf]
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, decide_eq_true hlen]
++    · rw [if_pos hlen, decide_eq_true hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none => rfl
+       | some i =>
+         rw [Option.map_some]
+         dsimp only
+         by_cases hle : R.arity i ≤ stack.length
+-        · rw [dite_eq_left hle, decide_eq_true hle]
++        · rw [dif_pos hle, decide_eq_true hle]
+           rfl
+-        · rw [dite_eq_right hle, decide_eq_false hle]
+-    · rw [ite_eq_right hlen, decide_eq_false hlen]
++        · rw [dif_neg hle, decide_eq_false hle]
++    · rw [if_neg hlen, decide_eq_false hlen]
+ 
+ /-- The fold at the terminal algebra is present exactly on the valid words:
+ the recognizer is the fold's degenerate instance. -/
+ theorem foldOut_unit (R : RankedAlphabet) (w : List Bool) :
+     foldOut R (algUnit R) w = if R.Valid w then some () else none := by
+   by_cases hv : R.Valid w
+-  · rw [ite_eq_left hv]
++  · rw [if_pos hv]
+     have hcond := (foldOut_cond R (algUnit R) w).trans hv
+     have h1 : (foldScanFinal R (algUnit R) w).stack.length = 1 :=
+       eq_of_beq ((Bool.and_eq_true _ _).mp hcond).2
+@@ -187,8 +188,8 @@ theorem foldOut_unit (R : RankedAlphabet) (w : List Bool) :
+       rw [hst] at h1
+       exact absurd h1 (by simp)
+     | _ :: _ => rfl
+-  · rw [ite_eq_right hv, foldOut, foldOut_cond]
+-    exact ite_eq_right hv
++  · rw [if_neg hv, foldOut, foldOut_cond]
++    exact if_neg hv
+ 
+ /-- The expression at the terminal algebra decides `RankedAlphabet.Valid`, its
+ value pinned on both branches. -/
+@@ -198,9 +199,9 @@ theorem foldOutSem_unit_eq_ite (R : RankedAlphabet) (w : List Bool) :
+       if R.Valid w then [true] else [false] := by
+   rw [foldOutSem_eq, foldOut_unit]
+   by_cases hv : R.Valid w
+-  · rw [ite_eq_left hv, ite_eq_left hv]
++  · rw [if_pos hv, if_pos hv]
+     rfl
+-  · rw [ite_eq_right hv, ite_eq_right hv]
++  · rw [if_neg hv, if_neg hv]
+     rfl
+ 
+ end Geb.CobhamFold
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Destruct.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Destruct.lean
+index db23b24..ef4e0db 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Destruct.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Destruct.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.Computability.CobhamFoldProto.Initial
+@@ -203,6 +204,7 @@ theorem dropEntry_algPara (R : RankedAlphabet) (phi : ParaStep R) (t : R.Term) :
+   Term.induction (motive := fun t ↦
+       dropEntrySem ![Term.fold R (algPara R phi) t] = R.spell t)
+     (fun i ch ih ↦ by
++      beta_reduce
+       rw [Term.fold_mk, algPara, dropEntrySem_entryWord]
+       exact congrArg (algMk R i) (funext ih)) t
+ 
+@@ -471,8 +473,8 @@ theorem takeEntrySem_of_length_le_one : ∀ r : List Bool, r.length ≤ 1 →
+       omega)
+     rw [ht, takeEntrySem_cons]
+     cases b
+-    · rw [ite_eq_right (by simp)]
+-    · rw [ite_eq_left rfl, takeEntrySem_nil, dropEntrySem_nil, firstBitSem_eq]
++    · rw [if_neg (by simp)]
++    · rw [if_pos rfl, takeEntrySem_nil, dropEntrySem_nil, firstBitSem_eq]
+       rfl
+ 
+ /-- Dropping entries never lengthens a word. -/
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Fold.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Fold.lean
+index 71512ed..8d3fec1 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Fold.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Fold.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Data.Tree.Ranked.Preorder
+@@ -133,7 +134,7 @@ theorem arOf_eq_map_symOf (R : RankedAlphabet) (v : ℕ) :
+ /-- A block denotes the symbol it spells. -/
+ theorem symOf_decodeBits_code (R : RankedAlphabet) (i : Fin R.card) :
+     symOf R (decodeBits (R.code i)) = some i := by
+-  rw [decodeBits_code, symOf, dite_eq_left i.isLt]
++  rw [decodeBits_code, symOf, dif_pos i.isLt]
+ 
+ /-- The unique algebra morphism out of the term algebra: the fold of a term at
+ an algebra of the ranked alphabet. `RankedAlphabet.Term` is that alphabet's
+@@ -172,6 +173,7 @@ theorem Term.fold_map (R : RankedAlphabet)
+     ∀ t : R.Term, Term.fold R algV t = e (Term.fold R alg t) :=
+   fun t ↦ (Term.fold_unique R algV (fun t ↦ e (Term.fold R alg t))
+     (fun i ch ↦ by
++      beta_reduce
+       rw [Term.fold_mk]
+       exact (he i fun d ↦ Term.fold R alg (ch d)).symm) t).symm
+ 
+@@ -227,7 +229,7 @@ theorem toScan_foldScanStep (R : RankedAlphabet)
+   · dsimp only
+     rw [arOf_eq_map_symOf]
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, decide_eq_true hlen]
++    · rw [if_pos hlen, decide_eq_true hlen]
+       dsimp only
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none => rfl
+@@ -235,11 +237,11 @@ theorem toScan_foldScanStep (R : RankedAlphabet)
+         rw [Option.map_some]
+         dsimp only
+         by_cases hle : R.arity i ≤ stack.length
+-        · rw [dite_eq_left hle, decide_eq_true hle]
++        · rw [dif_pos hle, decide_eq_true hle]
+           exact Scan.ext rfl (by rw [toScan, List.length_cons, List.length_drop]) rfl
+-        · rw [dite_eq_right hle, decide_eq_false hle]
++        · rw [dif_neg hle, decide_eq_false hle]
+           rfl
+-    · rw [ite_eq_right hlen, decide_eq_false hlen]
++    · rw [if_neg hlen, decide_eq_false hlen]
+       rfl
+ 
+ /-- The fold scan of a word from a given state. `foldr` reads the word's last
+@@ -288,7 +290,7 @@ theorem mem_stack_foldScanFinal (R : RankedAlphabet)
+     · exact ih v hv
+     · dsimp only at hv
+       by_cases hlen : (b :: buf).length = R.width
+-      · rw [ite_eq_left hlen] at hv
++      · rw [if_pos hlen] at hv
+         match hsym : symOf R (decodeBits (b :: buf)) with
+         | none =>
+           rw [hsym] at hv
+@@ -297,13 +299,13 @@ theorem mem_stack_foldScanFinal (R : RankedAlphabet)
+           rw [hsym] at hv
+           dsimp only at hv
+           by_cases hst : R.arity i ≤ stack.length
+-          · rw [dite_eq_left hst] at hv
++          · rw [dif_pos hst] at hv
+             rcases List.mem_cons.mp hv with h | h
+             · exact h ▸ hpush i _
+             · exact ih v (List.mem_of_mem_drop h)
+-          · rw [dite_eq_right hst] at hv
++          · rw [dif_neg hst] at hv
+             exact ih v hv
+-      · rw [ite_eq_right hlen] at hv
++      · rw [if_neg hlen] at hv
+         exact ih v hv
+ 
+ /-- The fold scan of a concatenation reads the later part first. -/
+@@ -339,7 +341,7 @@ theorem foldScanFrom_short (R : RankedAlphabet)
+       rw [foldScanFrom_cons, ih (by simp only [List.length_cons] at hv; omega),
+         foldScanStep]
+       dsimp only
+-      rw [ite_eq_right (by
++      rw [if_neg (by
+         simp only [List.length_cons, List.length_append] at hv ⊢
+         omega)]
+       rfl)
+@@ -369,9 +371,9 @@ theorem foldScanFrom_code (R : RankedAlphabet)
+     foldScanFrom_short R alg (List.ofFn vals ++ st) [] v (by simp; omega),
+     foldScanStep]
+   simp only [List.append_nil]
+-  rw [ite_eq_left (by rw [List.length_cons]; omega), ← hcode, symOf_decodeBits_code]
++  rw [if_pos (by rw [List.length_cons]; omega), ← hcode, symOf_decodeBits_code]
+   dsimp only
+-  rw [dite_eq_left hle]
++  rw [dif_pos hle]
+   refine FoldScan.ext rfl ?_ rfl
+   refine congrArg₂ List.cons (congrArg (alg i) (funext fun d ↦ ?_))
+     (List.drop_left' hofFn)
+@@ -451,7 +453,7 @@ theorem foldOut_eq_none_of_not_valid (R : RankedAlphabet)
+     (alg : (i : Fin R.card) → (Fin (R.arity i) → α) → α) (w : List Bool)
+     (h : ¬ R.Valid w) : foldOut R alg w = none := by
+   rw [foldOut, foldOut_cond]
+-  exact ite_eq_right h
++  exact if_neg h
+ 
+ /-- The fold scan computes the decoding followed by the fold: the unique
+ algebra morphism out of the term algebra, read off the spelling. -/
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Layout.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Layout.lean
+index 50c0a4b..3a5ad4f 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Layout.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Layout.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.Computability.CobhamFoldProto.Fold
+@@ -238,6 +239,7 @@ private theorem scanFinal_replicate_false : ∀ k : ℕ,
+   Nat.rec (motive := fun k ↦
+       Binary.binRanked.scanFinal (List.replicate k false) = ⟨[], k, true⟩) rfl
+     fun k ih ↦ by
++      beta_reduce
+       rw [List.replicate_succ, scanFinal_cons, ih,
+         Binary.scanStep_false_of_live_of_buf_nil _ rfl rfl]
+ 
+@@ -411,7 +413,7 @@ theorem dropCountF_take_stack (R : RankedAlphabet) (p : ℕ) (b : Bool)
+   · rfl
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, ite_eq_left hlen]
++    · rw [if_pos hlen, if_pos hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none => rfl
+       | some i =>
+@@ -420,9 +422,9 @@ theorem dropCountF_take_stack (R : RankedAlphabet) (p : ℕ) (b : Bool)
+         have hmin : (stack.take (R.maxArity + 1)).length =
+             min (R.maxArity + 1) stack.length := List.length_take
+         by_cases hst : R.arity i ≤ stack.length
+-        · rw [ite_eq_left hst, ite_eq_left (by rw [hmin]; omega)]
+-        · rw [ite_eq_right hst, ite_eq_right (by rw [hmin]; omega)]
+-    · rw [ite_eq_right hlen, ite_eq_right hlen]
++        · rw [if_pos hst, if_pos (by rw [hmin]; omega)]
++        · rw [if_neg hst, if_neg (by rw [hmin]; omega)]
++    · rw [if_neg hlen, if_neg hlen]
+ 
+ /-- Truncating the stack at the dispatch window leaves the bits prepended
+ unchanged: the entries the algebra reads are the first `R.arity i`, and the
+@@ -439,7 +441,7 @@ theorem nextPrefixF_take_stack (R : RankedAlphabet) (enc : α → Fin p → Bool
+   · rfl
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, ite_eq_left hlen]
++    · rw [if_pos hlen, if_pos hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none => rfl
+       | some i =>
+@@ -448,12 +450,12 @@ theorem nextPrefixF_take_stack (R : RankedAlphabet) (enc : α → Fin p → Bool
+         have hmin : (stack.take (R.maxArity + 1)).length =
+             min (R.maxArity + 1) stack.length := List.length_take
+         by_cases hst : R.arity i ≤ stack.length
+-        · rw [dite_eq_left hst, dite_eq_left (by rw [hmin]; omega)]
++        · rw [dif_pos hst, dif_pos (by rw [hmin]; omega)]
+           refine congrArg₂ List.cons rfl (congrArg₂ List.append rfl
+             (congrArg (entryBits enc) (congrArg (alg i) (funext fun d ↦ ?_))))
+           exact List.getElem_take
+-        · rw [dite_eq_right hst, dite_eq_right (by rw [hmin]; omega)]
+-    · rw [ite_eq_right hlen, ite_eq_right hlen]
++        · rw [dif_neg hst, dif_neg (by rw [hmin]; omega)]
++    · rw [if_neg hlen, if_neg hlen]
+ 
+ /-- A step of the fold scan rewrites a bounded prefix of the state word and
+ drops a bounded number of its bits: the flag and the slot are rebuilt, and the
+@@ -484,7 +486,7 @@ theorem stateWordF_foldScanStep_of_lt (R : RankedAlphabet)
+     rfl
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, ite_eq_left hlen, ite_eq_left hlen]
++    · rw [if_pos hlen, if_pos hlen, if_pos hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none =>
+         dsimp only
+@@ -493,12 +495,12 @@ theorem stateWordF_foldScanStep_of_lt (R : RankedAlphabet)
+       | some i =>
+         dsimp only
+         by_cases hst : R.arity i ≤ stack.length
+-        · rw [dite_eq_left hst, ite_eq_left hst, dite_eq_left hst, hdropr (R.arity i),
++        · rw [dif_pos hst, if_pos hst, dif_pos hst, hdropr (R.arity i),
+             stateWordF, List.cons_append, List.append_assoc]
+           rfl
+-        · rw [dite_eq_right hst, ite_eq_right hst, dite_eq_right hst, hdrop]
++        · rw [dif_neg hst, if_neg hst, dif_neg hst, hdrop]
+           rfl
+-    · rw [ite_eq_right hlen, ite_eq_right hlen, ite_eq_right hlen, hdrop]
++    · rw [if_neg hlen, if_neg hlen, if_neg hlen, hdrop]
+       rfl
+ 
+ end Geb.CobhamFold
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SelfDelim.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SelfDelim.lean
+index 1371a47..a6c473d 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SelfDelim.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SelfDelim.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.Computability.CobhamFoldProto.Bound
+@@ -307,9 +308,9 @@ theorem length_dropUnarySem_le : ∀ w : List Bool,
+   List.rec (Nat.le_refl 0) fun b v ih ↦ by
+     rw [dropUnarySem_cons, List.length_cons]
+     cases b
+-    · rw [ite_eq_right (by simp)]
++    · rw [if_neg (by simp)]
+       omega
+-    · rw [ite_eq_left rfl]
++    · rw [if_pos rfl]
+       omega
+ 
+ /-- The word past a unary length prefix, as an expression of arity one. -/
+@@ -345,9 +346,9 @@ theorem length_dropEntrySem_le : ∀ w : List Bool,
+   List.rec (Nat.le_refl 0) fun b v ih ↦ by
+     rw [dropEntrySem_cons, List.length_cons]
+     cases b
+-    · rw [ite_eq_right (by simp)]
++    · rw [if_neg (by simp)]
+       omega
+-    · rw [ite_eq_left rfl, List.length_tail]
++    · rw [if_pos rfl, List.length_tail]
+       omega
+ 
+ /-- The word past a whole self-delimiting entry, as an expression of arity
+@@ -390,9 +391,9 @@ theorem length_takeEntrySem_le : ∀ w : List Bool,
+   List.rec (Nat.le_refl 0) fun b v ih ↦ by
+     rw [takeEntrySem_cons, List.length_cons]
+     cases b
+-    · rw [ite_eq_right (by simp), List.length_nil]
++    · rw [if_neg (by simp), List.length_nil]
+       omega
+-    · rw [ite_eq_left rfl, List.length_append]
++    · rw [if_pos rfl, List.length_append]
+       have := length_firstBitSem_le (dropEntrySem ![v])
+       have := length_dropEntrySem_le v
+       have hfb : (firstBitSem ![dropEntrySem ![v]]).length ≤ 1 := by
+@@ -412,9 +413,9 @@ theorem two_mul_length_takeEntrySem_add_length_dropEntrySem_le :
+   List.rec (Nat.le_refl 0) fun b v ih ↦ by
+     rw [takeEntrySem_cons, dropEntrySem_cons, List.length_cons]
+     cases b
+-    · rw [ite_eq_right (by simp), ite_eq_right (by simp), List.length_nil]
++    · rw [if_neg (by simp), if_neg (by simp), List.length_nil]
+       omega
+-    · rw [ite_eq_left rfl, ite_eq_left rfl, List.length_append, List.length_tail,
++    · rw [if_pos rfl, if_pos rfl, List.length_append, List.length_tail,
+         firstBitSem_eq]
+       match hd : dropEntrySem ![v] with
+       | [] =>
+@@ -485,9 +486,9 @@ theorem length_takeUnarySem_le : ∀ w : List Bool,
+   List.rec (Nat.le_refl 0) fun b v ih ↦ by
+     rw [takeUnarySem_cons, List.length_cons]
+     cases b
+-    · rw [ite_eq_right (by simp), List.length_nil]
++    · rw [if_neg (by simp), List.length_nil]
+       omega
+-    · rw [ite_eq_left rfl, List.length_cons]
++    · rw [if_pos rfl, List.length_cons]
+       omega
+ 
+ /-- The leading run of `true`, as an expression of arity one. -/
+@@ -503,9 +504,9 @@ def takeUnaryOf : COf 1 :=
+ theorem takeUnarySem_replicate (X : List Bool) : ∀ k : ℕ,
+     takeUnarySem ![List.replicate k true ++ false :: X] = List.replicate k true :=
+   Nat.rec (by rw [List.replicate_zero, List.nil_append, takeUnarySem_cons,
+-      ite_eq_right (by simp)])
++      if_neg (by simp)])
+     fun k ih ↦ by
+-      rw [List.replicate_succ, List.cons_append, takeUnarySem_cons, ite_eq_left rfl,
++      rw [List.replicate_succ, List.cons_append, takeUnarySem_cons, if_pos rfl,
+         ih]
+ 
+ /-- Dropping a fixed number of whole self-delimiting entries. -/
+@@ -552,16 +553,16 @@ follows the sentinel. -/
+ theorem dropUnarySem_replicate (X : List Bool) : ∀ k : ℕ,
+     dropUnarySem ![List.replicate k true ++ false :: X] = X :=
+   Nat.rec rfl fun k ih ↦ by
+-    rw [List.replicate_succ, List.cons_append, dropUnarySem_cons, ite_eq_left rfl, ih]
++    rw [List.replicate_succ, List.cons_append, dropUnarySem_cons, if_pos rfl, ih]
+ 
+ /-- The entry-dropping primitive drops as many payload bits as the unary prefix
+ counts. -/
+ theorem dropEntrySem_replicate (X : List Bool) : ∀ k : ℕ,
+     dropEntrySem ![List.replicate k true ++ false :: X] = X.drop k :=
+   Nat.rec (by rw [List.replicate_zero, List.nil_append, dropEntrySem_cons,
+-      ite_eq_right (by simp), List.drop_zero])
++      if_neg (by simp), List.drop_zero])
+     fun k ih ↦ by
+-      rw [List.replicate_succ, List.cons_append, dropEntrySem_cons, ite_eq_left rfl,
++      rw [List.replicate_succ, List.cons_append, dropEntrySem_cons, if_pos rfl,
+         ih, List.tail_drop]
+ 
+ /-- Splitting a truncation at its last bit. Proved here rather than by
+@@ -580,9 +581,9 @@ counts. -/
+ theorem takeEntrySem_replicate (X : List Bool) : ∀ k : ℕ,
+     takeEntrySem ![List.replicate k true ++ false :: X] = X.take k :=
+   Nat.rec (by rw [List.replicate_zero, List.nil_append, takeEntrySem_cons,
+-      ite_eq_right (by simp), List.take_zero])
++      if_neg (by simp), List.take_zero])
+     fun k ih ↦ by
+-      rw [List.replicate_succ, List.cons_append, takeEntrySem_cons, ite_eq_left rfl,
++      rw [List.replicate_succ, List.cons_append, takeEntrySem_cons, if_pos rfl,
+         ih, dropEntrySem_replicate, firstBitSem_eq_take_one,
+         ← take_succ_append_take_one]
+ 
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SmashFree.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SmashFree.lean
+index d793f0d..85fff92 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SmashFree.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/SmashFree.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.Computability.CobhamFoldProto.Expr
+@@ -483,19 +484,19 @@ theorem smashFreeBool_branchV (R : RankedAlphabet)
+   · exact smashFreeBool_idOf
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen]
++    · rw [if_pos hlen]
+       match symOf R (decodeBits (b :: buf)) with
+       | none => exact smashFreeBool_prependOf _ _ (smashFreeBool_predIterOf _)
+       | some i =>
+         dsimp only
+         by_cases hst : R.arity i ≤ depth
+-        · rw [ite_eq_left hst]
++        · rw [if_pos hst]
+           exact smashFreeBool_prependOf _ _
+             (smashFreeBool_comp1Of _ _ (smashFreeBool_rebuildOf _ (halg i))
+               (smashFreeBool_predIterOf _))
+-        · rw [ite_eq_right hst]
++        · rw [if_neg hst]
+           exact smashFreeBool_prependOf _ _ (smashFreeBool_predIterOf _)
+-    · rw [ite_eq_right hlen]
++    · rw [if_neg hlen]
+       exact smashFreeBool_prependOf _ _ (smashFreeBool_predIterOf _)
+ 
+ /-- A step of the bitstring fold carries no `smash` when the algebra's
+@@ -514,11 +515,11 @@ theorem smashFreeBool_readOfV (R : RankedAlphabet) :
+     by_cases hacc : ((decodeVAt R (readoutWidthV R) v).live &&
+         (decodeVAt R (readoutWidthV R) v).buf.isEmpty &&
+         (decodeVAt R (readoutWidthV R) v).depth == 1) = true
+-    · rw [ite_eq_left hacc]
++    · rw [if_pos hacc]
+       exact smashFreeBool_prependOf _ _
+         (smashFreeBool_comp1Of _ _ smashFreeBool_takeEntryOf
+           (smashFreeBool_predIterOf _))
+-    · rw [ite_eq_right hacc]
++    · rw [if_neg hacc]
+       exact smashFreeBool_constAtOf 1 _
+ 
+ /-- The fold at a bitstring carrier lies in the subalgebra `Cobham.SmashFree`
+diff --git a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Variable.lean b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Variable.lean
+index 785d0d9..69f6e3f 100644
+--- a/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Variable.lean
++++ b/vendor/geb-mathlib/Geb/Internal/Computability/CobhamFoldProto/Variable.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Internal.Computability.CobhamFoldProto.Bound
+@@ -471,16 +472,16 @@ theorem branchV_min (R : RankedAlphabet)
+   · rfl
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, ite_eq_left hlen]
++    · rw [if_pos hlen, if_pos hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none => rfl
+       | some i =>
+         dsimp only
+         have hle : R.arity i ≤ R.maxArity := arity_le_maxArity R i
+         by_cases hst : R.arity i ≤ depth
+-        · rw [ite_eq_left hst, ite_eq_left (by omega)]
+-        · rw [ite_eq_right hst, ite_eq_right (by omega)]
+-    · rw [ite_eq_right hlen, ite_eq_right hlen]
++        · rw [if_pos hst, if_pos (by omega)]
++        · rw [if_neg hst, if_neg (by omega)]
++    · rw [if_neg hlen, if_neg hlen]
+ 
+ /-- The state layout at an explicit state. -/
+ theorem stateWordV_mk (R : RankedAlphabet) (buf : List Bool)
+@@ -523,7 +524,7 @@ theorem stepWord_foldStepV (R : RankedAlphabet)
+   · rw [stepWord_idOf]
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen, ite_eq_left hlen]
++    · rw [if_pos hlen, if_pos hlen]
+       match hsym : symOf R (decodeBits (b :: buf)) with
+       | none =>
+         rw [stepWord_prependOf, stepWord_predIterOf, hdrop0, stateWordV_mk]
+@@ -531,7 +532,7 @@ theorem stepWord_foldStepV (R : RankedAlphabet)
+       | some i =>
+         dsimp only
+         by_cases hst : R.arity i ≤ stack.length
+-        · rw [ite_eq_left hst, dite_eq_left hst, stepWord_prependOf,
++        · rw [if_pos hst, dif_pos hst, stepWord_prependOf,
+             stepWord_comp1Of, stepWord_predIterOf, drop_stateWordV R _ h _ hst,
+             stepWord_rebuildOf, takeUnarySem_replicate, dropUnarySem_replicate,
+             stepWord_newStackOf, stepWord_dropEntriesOf_stackWordV,
+@@ -549,10 +550,10 @@ theorem stepWord_foldStepV (R : RankedAlphabet)
+             rfl
+           rw [hrep]
+           simp only [List.cons_append, List.append_assoc]
+-        · rw [ite_eq_right hst, dite_eq_right hst, stepWord_prependOf,
++        · rw [if_neg hst, dif_neg hst, stepWord_prependOf,
+             stepWord_predIterOf, hdrop0, stateWordV_mk]
+           simp only [List.cons_append, List.append_assoc]
+-    · rw [ite_eq_right hlen, ite_eq_right hlen, stepWord_prependOf,
++    · rw [if_neg hlen, if_neg hlen, stepWord_prependOf,
+         stepWord_predIterOf, hdrop0, stateWordV_mk]
+       simp only [List.cons_append, List.append_assoc]
+ 
+@@ -756,7 +757,7 @@ theorem stepWord_readOfV (R : RankedAlphabet) (s : FoldScan (List Bool))
+         beq_eq_false_iff_ne.mpr hn]
+   rw [hmin]
+   by_cases hacc : (s.live && s.buf.isEmpty && (s.stack.length == 1)) = true
+-  · rw [ite_eq_left hacc, ite_eq_left hacc, stepWord_prependOf, stepWord_comp1Of,
++  · rw [if_pos hacc, if_pos hacc, stepWord_prependOf, stepWord_comp1Of,
+       stepWord_predIterOf]
+     obtain ⟨_, hone⟩ := (Bool.and_eq_true _ _).mp hacc
+     have h1 : s.stack.length = 1 := eq_of_beq hone
+@@ -773,7 +774,7 @@ theorem stepWord_readOfV (R : RankedAlphabet) (s : FoldScan (List Bool))
+     rw [drop_stateWordV_succ R s h h1, stepWord_takeEntryOf, ha,
+       stackWordV_cons, stackWordV_nil, takeEntrySem_entryWord]
+     rfl
+-  · rw [ite_eq_right hacc, ite_eq_right hacc, stepWord_constAtOf]
++  · rw [if_neg hacc, if_neg hacc, stepWord_constAtOf]
+     rfl
+ 
+ /-- The readout composed onto the scan, at its declared arity. -/
+@@ -875,6 +876,7 @@ theorem length_fold_le_of_growth (R : RankedAlphabet)
+   Term.induction
+     (motive := fun t ↦ (Term.fold R alg t).length ≤ c * t.size)
+     fun i ch ih ↦ by
++      beta_reduce
+       rw [Term.fold_mk, size_mk, Nat.mul_add, Nat.mul_one]
+       refine Nat.le_trans (hgrow i fun d ↦ Term.fold R alg (ch d)) ?_
+       refine Nat.add_le_add_right ?_ c
+@@ -926,7 +928,7 @@ theorem potential_foldScanStep_le_of_invariant (R : RankedAlphabet)
+     omega
+   · dsimp only
+     by_cases hlen : (b :: buf).length = R.width
+-    · rw [ite_eq_left hlen]
++    · rw [if_pos hlen]
+       have hbw : buf.length + 1 = R.width := by
+         rw [List.length_cons] at hlen
+         omega
+@@ -938,7 +940,7 @@ theorem potential_foldScanStep_le_of_invariant (R : RankedAlphabet)
+       | some i =>
+         dsimp only
+         by_cases hst : R.arity i ≤ stack.length
+-        · rw [dite_eq_left hst]
++        · rw [dif_pos hst]
+           dsimp only
+           have hsum := sum_ofFn_getElem (R.arity i) stack hst
+           -- the popped arguments are members of the stack, so `hs` supplies
+@@ -963,11 +965,11 @@ theorem potential_foldScanStep_le_of_invariant (R : RankedAlphabet)
+             rw [← hbw, Nat.mul_add, Nat.mul_one]
+           simp only [List.length_nil, Nat.mul_zero, Nat.add_zero]
+           omega
+-        · rw [dite_eq_right hst]
++        · rw [dif_neg hst]
+           dsimp only
+           simp only [List.length_nil, Nat.mul_zero]
+           omega
+-    · rw [ite_eq_right hlen]
++    · rw [if_neg hlen]
+       dsimp only
+       have hcb : c * (buf.length + 1) = c * buf.length + c := by
+         rw [Nat.mul_add, Nat.mul_one]
 diff --git a/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean b/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean
 index 131bc16..6c08797 100644
 --- a/vendor/geb-mathlib/Geb/Internal/ConcreteSyntax.lean
@@ -247,6 +873,94 @@ index 5031b8c..229b1f3 100644
              parseChildren_print _ (List.ofFn ch) (g + 1) rest hchild hfuel,
              Option.map_some, Rose.ofList_ofFn]) r
  
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Basic.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Basic.lean
+index 6168814..00c690a 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Basic.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Basic.lean
+@@ -3,12 +3,14 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Mathlib.CategoryTheory.Comma.Arrow
+ public import Mathlib.CategoryTheory.FiberedCategory.Fiber
+ public import Mathlib.CategoryTheory.FiberedCategory.Fibered
+ public import Mathlib.CategoryTheory.FiberedCategory.HomLift
++public import Mathlib.Data.Sigma.Basic
+ public import Mathlib.Tactic.Attr.Core
+ 
+ /-!
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/FiberPresheaf.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/FiberPresheaf.lean
+index 78839a9..25f674a 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/FiberPresheaf.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/FiberPresheaf.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.CategoryTheory.DiscreteFibration.Elements
+@@ -98,10 +99,9 @@ theorem restrict_comp {b b' b'' : B} (g : b ⟶ b') (g' : b' ⟶ b'')
+ /-- The fiber presheaf `b ↦ p⁻¹(b)` of a discrete fibration. -/
+ def fiberPresheaf : Bᵒᵖ ⥤ Type u₁ where
+   obj b := p.Fiber b.unop
+-  map g := TypeCat.ofHom fun c => D.restrict g.unop c
+-  map_id _ := ConcreteCategory.hom_ext _ _ fun c => D.restrict_id c
+-  map_comp g g' :=
+-    ConcreteCategory.hom_ext _ _ fun c => D.restrict_comp g'.unop g.unop c
++  map g := fun c => D.restrict g.unop c
++  map_id _ := funext fun c => D.restrict_id c
++  map_comp g g' := funext fun c => D.restrict_comp g'.unop g.unop c
+ 
+ /-- The fiber presheaf's value on objects.  Not a `simp` lemma: it rewrites
+ the object arguments carried by the coercion in `fiberPresheaf_map`'s left-hand
+@@ -252,11 +252,11 @@ def fiberPresheafEquiv (b : B) : (π F).Fiber b ≃ F.obj (op b)
+     subst hb
+     refine Subtype.ext ?_
+     exact (congrArg (mk x.base)
+-      (ConcreteCategory.congr_hom (F.map_id (op x.base)) x.elt)).trans
++      (congrFun (F.map_id (op x.base)) x.elt)).trans
+       (mk_base_elt x)
+   right_inv y :=
+     show F.map (𝟙 (op b)) y = y from
+-      ConcreteCategory.congr_hom (F.map_id _) y
++      congrFun (F.map_id _) y
+ 
+ /-- Naturality of `fiberPresheafEquiv`: restriction in the fiber presheaf of
+ `π F` is restriction in `F`. -/
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Packaged.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Packaged.lean
+index 74f7b97..4eaea77 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Packaged.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/DiscreteFibration/Packaged.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.CategoryTheory.DiscreteFibration.FiberPresheaf
+@@ -99,6 +100,7 @@ noncomputable def IsDiscreteFibration.toDiscreteFibration {p : C ⥤ B}
+       map_hom := fun {b c} g => ?_
+       unique := fun {b c} g {c'} h eh hh => ?_ }
+   · obtain ⟨hX, hY, hf⟩ := (Arrow.mk_eq_mk_iff _ _).1 (hm g)
++    simp only [Functor.id_obj] at hf ⊢
+     simp only [Functor.map_comp, eqToHom_map, hf]
+     simp
+   · refine sigma_eq_of_arrow_eq h _ ?_ (hr g)
+@@ -173,7 +175,7 @@ def fiberPresheafIso :
+     (discreteFibration F).fiberPresheaf ≅ F ⋙ uliftFunctor.{u₂, v₃} :=
+   NatIso.ofComponents
+     (fun b => ((fiberPresheafEquiv F b.unop).trans Equiv.ulift.symm).toIso)
+-    (fun {b b'} g => ConcreteCategory.hom_ext _ _ fun x => by
++    (fun {b b'} g => funext fun x => by
+       have h := fiberPresheafEquiv_restrict F g.unop x
+       rw [Quiver.Hom.op_unop] at h
+       exact congrArg ULift.up h)
 diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/ElementaryTopos.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/ElementaryTopos.lean
 index 970932c..df65d6d 100644
 --- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/ElementaryTopos.lean
