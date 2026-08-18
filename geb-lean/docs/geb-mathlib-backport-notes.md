@@ -8,7 +8,7 @@
   - [1. `GebMeta` not vendored](#1-gebmeta-not-vendored)
   - [2. `linter.checkUnivs` configuration absent in v4.29](#2-lintercheckunivs-configuration-absent-in-v429)
   - [3. `ConcreteCategory` redesign (mathlib pull request 34741)](#3-concretecategory-redesign-mathlib-pull-request-34741)
-  - [4. Eliminator motive left as an unreduced beta-redex](#4-eliminator-motive-left-as-an-unreduced-beta-redex)
+  - [4. Eliminator motive or functional argument left as an unreduced beta-redex](#4-eliminator-motive-or-functional-argument-left-as-an-unreduced-beta-redex)
   - [5. `simp` rewriting under dependent proof arguments narrowed in v4.33](#5-simp-rewriting-under-dependent-proof-arguments-narrowed-in-v433)
   - [6. Explicit universe arguments in generalized field notation](#6-explicit-universe-arguments-in-generalized-field-notation)
   - [7. `rw`'s closing `rfl` runs at reducible transparency](#7-rws-closing-rfl-runs-at-reducible-transparency)
@@ -17,6 +17,9 @@
   - [10. `simp` leaves a `cast`'s proof argument unfolded](#10-simp-leaves-a-casts-proof-argument-unfolded)
   - [11. Conditional-rewrite lemmas renamed in v4.34](#11-conditional-rewrite-lemmas-renamed-in-v434)
   - [12. `Computability.Encoding` alphabet became a parameter](#12-computabilityencoding-alphabet-became-a-parameter)
+  - [13. `unusedArguments` reports a constant function](#13-unusedarguments-reports-a-constant-function)
+  - [14. Declaration reached upstream through a wider import closure](#14-declaration-reached-upstream-through-a-wider-import-closure)
+  - [15. `Arrow.mk_eq_mk_iff` states its endpoints through `𝟭 C`](#15-arrowmk_eq_mk_iff-states-its-endpoints-through-%F0%9D%9F%AD-c)
 - [Updating the patch for a new upstream](#updating-the-patch-for-a-new-upstream)
   - [The no-op condition](#the-no-op-condition)
 - [Module exclusion](#module-exclusion)
@@ -134,18 +137,42 @@ genuinely new (decide the adaptation, add a category here).
   (`arityHomEquivNatTrans`): the backward direction re-states
   naturality with `NatTrans.naturality_apply α f.op b`. Replace it
   with `FunctorToTypes.naturality _ _ α f.op b`.
+- Adaptation in `CategoryTheory/DiscreteFibration/FiberPresheaf.lean`:
+  `fiberPresheaf` wraps its `map` field in `TypeCat.ofHom` and proves
+  the two functor laws by `ConcreteCategory.hom_ext _ _`. Drop the
+  wrapper and replace `ConcreteCategory.hom_ext _ _` with `funext`; the
+  two laws then read `funext fun c => D.restrict_id c` and
+  `funext fun c => D.restrict_comp g'.unop g.unop c`. In the same
+  module, `fiberPresheafEquiv` reads a functor's identity law through
+  `ConcreteCategory.congr_hom (F.map_id _)`; replace that with
+  `congrFun (F.map_id _)` at both occurrences.
+- Adaptation in `CategoryTheory/DiscreteFibration/Packaged.lean`
+  (`fiberPresheafIso`): the naturality component is
+  `ConcreteCategory.hom_ext _ _ fun x => by ...`. Replace
+  `ConcreteCategory.hom_ext _ _` with `funext`.
 
-### 4. Eliminator motive left as an unreduced beta-redex
+### 4. Eliminator motive or functional argument left as an unreduced beta-redex
 
 - Upstream cause: a proof applies a dependent eliminator with an
-  explicit `motive` and enters the minor premise via
+  explicit `motive`, or a uniqueness principle at an explicit
+  functional argument, and enters the minor premise via
   `fun ... => by ...`. The affected sites are `elimData_valid` in
   `Slice/W.lean` and `wValidBool_eq_true_iff` in `Slice/Decidable.lean`
   (both `WType.rec`), `isHereditarilyNaturalBoolCore_eq_true_iff` in
   `Presheaf/Decidable.lean` (`SlicePFunctor.W.induction`),
-  `ofRose_toRose` in `Internal/ConcreteSyntax.lean` (`Ast.ind`), and
-  `length_spell` in `Data/Tree/Ranked/Preorder.lean`
-  (`RankedAlphabet.Term.induction`).
+  `ofRose_toRose` in `Internal/ConcreteSyntax.lean` (`Ast.ind`),
+  `length_spell` in `Data/Tree/Ranked/Preorder.lean`,
+  `length_fold_le_of_growth` in
+  `Internal/Computability/CobhamFoldProto/Variable.lean`, and
+  `dropEntry_algPara` in
+  `Internal/Computability/CobhamFoldProto/Destruct.lean` (all three
+  `RankedAlphabet.Term.induction`),
+  `scanFinal_replicate_false` in
+  `Internal/Computability/CobhamFoldProto/Layout.lean` (`Nat.rec`),
+  and `Term.fold_map` in
+  `Internal/Computability/CobhamFoldProto/Fold.lean`, where the
+  unreduced application is not a motive but the carrier map
+  `fun t ↦ e (Term.fold R alg t)` supplied to `Term.fold_unique`.
 - v4.29 symptom: the goal is `(fun w => ...) (WType.mk a f)` — the motive
   lambda is not beta-reduced at the constructor — so the opening
   `rw` reports "Did not find an occurrence of the pattern" (the rewritten
@@ -297,9 +324,12 @@ genuinely new (decide the adaptation, add a category here).
   `Computability/BellantoniCook/Tree.lean`,
   `Computability/Cobham/RankedTree.lean`,
   `Computability/Cobham/Tree.lean`, `Data/Tree/Ranked/Code.lean`,
-  `Data/Tree/Ranked/Preorder.lean`, and `Data/W/Basic.lean`. Only three
-  of the eleven appear in a build log: lake does not attempt a module
-  whose imports failed.
+  `Data/Tree/Ranked/Preorder.lean`, `Data/W/Basic.lean`, and, under
+  `Internal/Computability/CobhamFoldProto/`, `Degenerate.lean`,
+  `Destruct.lean`, `Fold.lean`, `Layout.lean`, `SelfDelim.lean`,
+  `SmashFree.lean`, and `Variable.lean`. Only a few of them appear in
+  any one build log: lake does not attempt a module whose imports
+  failed.
 - Adaptation: substitute the v4.29 names throughout the vendored tree.
   The adaptation is mechanical, so re-applying it to a fresh upstream
   source is a re-run rather than a hunk-by-hunk re-anchoring:
@@ -332,6 +362,56 @@ genuinely new (decide the adaptation, add a category here).
   structure has a fourth field, so reword to "as a
   `Computability.Encoding` over the alphabet `Bool`, whose remaining
   three fields they are".
+
+### 13. `unusedArguments` reports a constant function
+
+- Upstream cause:
+  `Internal/Computability/CobhamFoldProto/Degenerate.lean` defines the
+  terminal carrier's encoding, decoding, and algebra — `encUnit`,
+  `decUnit`, and `algUnit` — as constant functions, each ignoring an
+  argument its type obliges it to take.
+- v4.29 symptom: under `lake lint -- Geb`, the `unusedArguments`
+  env-linter reports `Geb.CobhamFold.encUnit argument 1`,
+  `Geb.CobhamFold.decUnit argument 1`, and
+  `Geb.CobhamFold.algUnit argument 3`. The declarations are unchanged
+  from upstream; the report is v4.29's linter.
+- Adaptation: insert `@[nolint unusedArguments]` between each
+  declaration's docstring and its `def` keyword, as category 2 does for
+  `checkUnivs`.
+
+### 14. Declaration reached upstream through a wider import closure
+
+- Upstream cause:
+  `CategoryTheory/DiscreteFibration/Basic.lean` uses
+  `Sigma.mk.inj_iff` without importing `Mathlib.Data.Sigma.Basic`,
+  reaching it through the transitive closure of its
+  `Mathlib.CategoryTheory` imports.
+- v4.29 symptom: `` Unknown constant `Sigma.mk.inj_iff` ``, followed by
+  `` Tactic `rcases` failed: `x✝ : ?m…` is not an inductive datatype ``
+  wherever the failed term stands as an `obtain` scrutinee. The
+  declaration itself is present in v4.29 under the same name, in
+  `Mathlib/Data/Sigma/Basic.lean`; only the import closure differs.
+- Adaptation: add `public import Mathlib.Data.Sigma.Basic` to the
+  module's import block, in alphabetical position.
+
+### 15. `Arrow.mk_eq_mk_iff` states its endpoints through `𝟭 C`
+
+- Upstream cause:
+  `CategoryTheory/DiscreteFibration/Packaged.lean`'s
+  `IsDiscreteFibration.toDiscreteFibration` obtains a hypothesis
+  `hf : p.map q.hom = eqToHom hX ≫ g ≫ eqToHom hY.symm`, where
+  `q := H.equiv.symm ⟨(Arrow.mk g, c), rfl⟩`,
+  from `Arrow.mk_eq_mk_iff` and discharges the `map_hom` field with
+  `simp only [Functor.map_comp, eqToHom_map, hf]` followed by `simp`.
+- v4.29 symptom: `This simp argument is unused: hf`, then
+  `unsolved goals`; `rw [hf]` reports that its pattern, which prints
+  identically to a subterm of the goal, does not occur there. An
+  `Arrow C` is a `Comma (𝟭 C) (𝟭 C)`, so `hf`'s endpoints are
+  `p.obj ((𝟭 C).obj …)` — visible in the types of `hX` and `hY` — while
+  the goal's are `p.obj …`; the two `p.map` applications differ in their
+  implicit endpoint arguments.
+- Adaptation: normalise the hypothesis and the goal first, prepending
+  `simp only [Functor.id_obj] at hf ⊢` to the existing `simp only`.
 
 ## Updating the patch for a new upstream
 

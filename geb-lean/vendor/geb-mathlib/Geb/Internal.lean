@@ -15,6 +15,7 @@ public import Geb.Internal.ReadableSExpr
 # Geb.Internal — downstream-only content
 
 Modules under this namespace are not intended for upstream
-extraction. They may import from `Mathlib.*`, `Cslib.*`,
-`Geb.Mathlib.*`, `Geb.Cslib.*`, or `Geb.Internal.*`.
+extraction. They may import from `Mathlib.*`, `Batteries.*`,
+`Cslib.*`, `Geb.Mathlib.*`, `Geb.Cslib.*`, `GebLang.*` or
+`Geb.Internal.*`.
 -/
