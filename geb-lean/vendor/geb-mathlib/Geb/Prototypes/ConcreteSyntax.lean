@@ -792,7 +792,7 @@ follows it, rather than truncating. `parse` cannot observe the guard —
 a truncating read would consume the whole remaining input, and every
 position that can follow one demands more — so what the guard buys is
 that `readVerbatim` reads the [RFC9804] `verbatim` production correctly
-on its own. `GebTests.Internal.ConcreteSyntax` asserts that directly. -/
+on its own. `GebTests.Prototypes.ConcreteSyntax` asserts that directly. -/
 def readVerbatim (cs : List Char) : Option (List Char × List Char) :=
   match readNat cs with
   | some (n, ':' :: r) => if n ≤ r.length then some (r.take n, r.drop n) else none

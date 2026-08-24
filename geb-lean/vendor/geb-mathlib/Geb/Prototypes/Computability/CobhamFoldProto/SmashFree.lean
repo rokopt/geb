@@ -6,8 +6,8 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Expr
-public import Geb.Internal.Computability.CobhamFoldProto.Variable
+public import Geb.Prototypes.Computability.CobhamFoldProto.Expr
+public import Geb.Prototypes.Computability.CobhamFoldProto.Variable
 
 /-!
 # Smash-freeness at a symbolic tree

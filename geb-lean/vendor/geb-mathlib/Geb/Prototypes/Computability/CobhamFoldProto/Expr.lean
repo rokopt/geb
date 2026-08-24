@@ -5,22 +5,22 @@ Authors: Terence Rokop
 -/
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Bound
-public import Geb.Internal.Computability.CobhamFoldProto.Layout
+public import Geb.Prototypes.Computability.CobhamFoldProto.Bound
+public import Geb.Prototypes.Computability.CobhamFoldProto.Layout
 
 /-!
 # The fold over recognized terms as an expression of Cobham's class
 
-The fold scan of `Geb/Internal/Computability/CobhamFoldProto/Fold.lean`, laid
+The fold scan of `Geb/Prototypes/Computability/CobhamFoldProto/Fold.lean`, laid
 out as a bitstring by
-`Geb/Internal/Computability/CobhamFoldProto/Layout.lean`, carried by the scan
-combinator of `Geb/Internal/Computability/CobhamFoldProto/Bound.lean`, and
+`Geb/Prototypes/Computability/CobhamFoldProto/Layout.lean`, carried by the scan
+combinator of `Geb/Prototypes/Computability/CobhamFoldProto/Bound.lean`, and
 composed with a readout into an expression computing
 `RankedAlphabet.parse` followed by the fold.
 
 At `p = 0` and the carrier `Unit` this construction meets the recognizer of
 `Geb/Mathlib/Computability/Cobham/RankedTree.lean`; the module
-`Geb/Internal/Computability/CobhamFoldProto/Degenerate.lean` identifies the
+`Geb/Prototypes/Computability/CobhamFoldProto/Degenerate.lean` identifies the
 state layout, the dispatch window, the readout window and the step, and the two
 accept the same language. They are not the same expression.
 The raw trees differ — `Geb.CobhamFold.boundMulRaw_ne_boundRaw` separates the

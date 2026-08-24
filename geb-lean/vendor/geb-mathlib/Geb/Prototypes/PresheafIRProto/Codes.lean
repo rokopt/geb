@@ -6,7 +6,7 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.PresheafIRProto.Basic
+public import Geb.Prototypes.PresheafIRProto.Basic
 public import Geb.Mathlib.Data.PFunctor.Slice.W
 public import Mathlib.CategoryTheory.Category.Cat
 public import Mathlib.CategoryTheory.Category.Preorder

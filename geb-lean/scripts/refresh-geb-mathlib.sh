@@ -14,10 +14,10 @@ SRC_REV="${1:-main}"
 # Name the narrowest module that carries the dependency, so that a
 # sibling added upstream later is ingested rather than silently dropped.
 #
-# Geb.Internal.Computability.TreeScanner: imports
+# Geb.Prototypes.Computability.TreeScanner: imports
 # Cslib.Computability.Machines.Turing.MultiTape.{Deterministic,TapeLemmas},
 # added to cslib after the pinned v4.29.0-rc6 revision.
-EXCLUDED_MODULES=(Geb.Internal.Computability.TreeScanner)
+EXCLUDED_MODULES=(Geb.Prototypes.Computability.TreeScanner)
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"   # geb-lean package root
 VENDOR="$ROOT/vendor/geb-mathlib"
 PATCH="$ROOT/scripts/geb-mathlib-backport.patch"

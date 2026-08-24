@@ -6,7 +6,7 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.ConcreteSyntax
+public import Geb.Prototypes.ConcreteSyntax
 public import Mathlib.Data.Fin.VecNotation
 
 /-!
@@ -32,7 +32,7 @@ list whose head is its label and whose tail is its children, which is
 the S-expression convention for applying a function to arguments and
 agrees with the reading `Geb.Ast.toRose` fixes. It is a different
 encoding of the same trees from `Ast.toCSexp`, and
-`GebTests.Internal.CanonicalSExpr` exhibits a tree they spell
+`GebTests.Prototypes.CanonicalSExpr` exhibits a tree they spell
 differently.
 
 ## Main definitions
@@ -46,7 +46,7 @@ differently.
 * `Rose.parse`, `Ast.parseViaRose` — the parsers matching `Rose.print`
   and `Ast.printViaRose`, built from `Geb.Rose.parseChildren`, the
   bounded loop over a node's children that
-  `Geb.Internal.ConcreteSyntax` supplies to every spelling closing a
+  `Geb.Prototypes.ConcreteSyntax` supplies to every spelling closing a
   child list with `')'`.
 
 ## Main statements
@@ -70,7 +70,7 @@ conformance for the trees at hand. An atom type over octets would
 discharge the condition outright.
 
 A rose node's arity is unbounded, so `Geb.Rose.parseChildren` — shared,
-and declared in `Geb.Internal.ConcreteSyntax` for that reason — reads
+and declared in `Geb.Prototypes.ConcreteSyntax` for that reason — reads
 until the
 closing parenthesis where `Geb.Csexp.parseStep` reads exactly two at a
 fork and none at a leaf. Two consequences follow. First, the loop needs
@@ -395,7 +395,7 @@ namespace Ast
 
 /-- Print an abstract syntax tree through the rose presentation. Not the
 same spelling as `Geb.Csexp.print`, which prints from `Ast` directly;
-see `GebTests.Internal.CanonicalSExpr`. -/
+see `GebTests.Prototypes.CanonicalSExpr`. -/
 def printViaRose {k : Nat} (a : Ast k) : List Char := Rose.print a.toRose
 
 /-- Parse an abstract syntax tree from the rose spelling, by parsing a

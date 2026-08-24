@@ -6,7 +6,7 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Initial
+public import Geb.Prototypes.Computability.CobhamFoldProto.Initial
 public import Geb.Mathlib.Data.W.Basic
 
 /-!

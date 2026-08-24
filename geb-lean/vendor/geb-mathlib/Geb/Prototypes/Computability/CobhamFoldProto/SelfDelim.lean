@@ -6,7 +6,7 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Bound
+public import Geb.Prototypes.Computability.CobhamFoldProto.Bound
 
 /-!
 # Self-delimiting bitstrings in Cobham's class
@@ -35,7 +35,7 @@ payload would not be extractable and the algebra could not be applied.
 
 * `Geb.CobhamFold.scan2` — the arity-two scan node as an expression;
   `Geb.CobhamFold.scan2Raw` itself lives with the scan combinators in
-  `Geb/Internal/Computability/CobhamFoldProto/Bound.lean`.
+  `Geb/Prototypes/Computability/CobhamFoldProto/Bound.lean`.
 * `Geb.CobhamFold.entryWord` — the self-delimiting spelling of a payload.
 * `Geb.CobhamFold.firstBitOf`, `Geb.CobhamFold.unaryOf`,
   `Geb.CobhamFold.takeUnaryOf`, `Geb.CobhamFold.dropUnaryOf`,
@@ -44,7 +44,7 @@ payload would not be extractable and the algebra could not be applied.
 * `Geb.CobhamFold.idOf`, `Geb.CobhamFold.dropEntriesOf`,
   `Geb.CobhamFold.entryOf` — the identity, and the primitives iterated to reach
   the `j`-th entry. The composition combinators they are built from live in
-  `Geb/Internal/Computability/CobhamFoldProto/Bound.lean`.
+  `Geb/Prototypes/Computability/CobhamFoldProto/Bound.lean`.
 
 ## Main statements
 

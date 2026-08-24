@@ -7,7 +7,7 @@ Authors: Terence Rokop
 module -- shake: keep-all, shake: keep-downstream
 
 public import Geb.Cslib
-public import Geb.Internal
+public import Geb.Prototypes
 public import Geb.Mathlib
 
 /-!
@@ -20,5 +20,6 @@ Root index for the `Geb` library. Subindexes:
   alternative (`TODO.md` § Upstream destination of core- and
   Batteries-targeted content)
 - `Geb.Cslib` — upstream-eligible content targeted at CSLib
-- `Geb.Internal` — downstream-only content
+- `Geb.Prototypes` — prototype content, whose expression is not yet
+  settled
 -/

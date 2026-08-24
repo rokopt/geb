@@ -98,9 +98,14 @@ identities and composition, completing Theorem 2.4 of
 `IR.interpMor_comp` in
 `Geb/Mathlib/Data/PFunctor/IndRec/Functor.lean`. The initial
 algebras of the interpreted endofunctors — the universes the codes
-describe, in the endofunctor case `IR I I` — are not constructed
-here; the set-theoretic model of [DybjerSetzer2003] justifies their
-existence using a Mahlo cardinal.
+describe, in the endofunctor case `IR I I` — are constructed in
+`Geb/Mathlib/Data/PFunctor/IndRec/W.lean`, through the translation
+of a code to a slice polynomial functor in
+`Geb/Mathlib/Data/PFunctor/IndRec/Slice.lean`. For the general —
+not necessarily small — inductive-recursive definitions of
+[DybjerSetzer2003], where no such translation is available, the
+set-theoretic model given there justifies their existence using a
+Mahlo cardinal.
 
 The sigma arities of `IR.Shape` live at the universe `uA` and the
 delta arities at `uB`, generalizing the single `Set` of
