@@ -6,7 +6,7 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Fold
+public import Geb.Prototypes.Computability.CobhamFoldProto.Fold
 public import Geb.Mathlib.Computability.Cobham.RankedTree
 
 /-!

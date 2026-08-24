@@ -31,7 +31,7 @@
 
 These notes catalogue the categories of change in
 `scripts/geb-mathlib-backport.patch`, which adapts the vendored
-`geb-mathlib` `Geb` source (mathlib `v4.34.0-rc1`) to compile under this
+`geb-mathlib` `Geb` source (mathlib `v4.34.0-rc2`) to compile under this
 repository's `v4.29.0-rc6`. When a refresh fails, check whether the new
 failure matches a category below (extend the corresponding hunk) or is
 genuinely new (decide the adaptation, add a category here).
@@ -74,7 +74,17 @@ genuinely new (decide the adaptation, add a category here).
   `IR.ObjFst`, `IR.Dest`, `IR.Alg`, the top-level `IR`, and
   `IR.interpObjIota`; those in `IndRec/Slice.lean` are `IR.sliceCode`,
   `IR.toSlicePFunctorIota`, `IR.toSlicePFunctorSigma`,
-  `IR.toSlicePFunctorDelta`, and `IR.toSlicePFunctorAlg`.
+  `IR.toSlicePFunctorDelta`, and `IR.toSlicePFunctorAlg`. The affected
+  declarations in `IndRec/W.lean` are `IR.PosToSliceSig`,
+  `IR.posToSliceIota`, `IR.posToSliceSigma`, `IR.posToSliceDelta`,
+  `IR.PosSlice`, `IR.posSliceIota`, `IR.posSliceSigma`,
+  `IR.posSliceDelta`, `IR.posSliceAlg`, `IR.posSlice`,
+  `IR.posSlice_interp`, `IR.posSlice_spf`, `IR.W`, `IR.wDecode`,
+  `IR.wObj`, `IR.W.mk`, and `IR.wDecode_mk`; those in
+  `IndRec/Indexed.lean` are `IIR.Shape`, `IIR.Direction`,
+  `IIR.pFunctor`, `IIR.Obj`, `IIR.Alg`, `IIR.Alg.toHom`, the top-level
+  `IIR`, `IIR.FamSlice`, `IIR.interpAlg`, `IIR.interp`, `IIR.toIRAlg`,
+  `IIR.toIR`, `IIR.W`, and `IIR.wDecode`.
 - Prose adaptation: the module docstrings of `Presheaf/Basic.lean` and
   `IndRec/Basic.lean` describe the suppression as
   "The `linter.checkUnivs false` option suppresses the ...". Because
@@ -120,20 +130,20 @@ genuinely new (decide the adaptation, add a category here).
   `ConcreteCategory.hom_ext _ _` with `funext`, and replace
   `ConcreteCategory.congr_hom g.h` with `congrFun g.h`: in v4.29 the
   morphism is the function and its equation is the function equation.
-- Adaptation in `Internal/PresheafIRProto/Basic.lean`
+- Adaptation in `Prototypes/PresheafIRProto/Basic.lean`
   (`postcompArityHom`): the arity-hom naturality proof closes with
   `simp only [← ConcreteCategory.comp_apply]; rw [ν.naturality f.op]`.
   Replace both tactics with
   `exact FunctorToTypes.naturality _ _ ν f.op _`, as in
   `Presheaf/Basic.lean` above.
-- Adaptation in `Internal/PresheafIRProto/Codes.lean`
+- Adaptation in `Prototypes/PresheafIRProto/Codes.lean`
   (`BaseArity.reindexHom`): the naturality proof strips the coercion
   layers with
   `simp only [TypeCat.Fun.toFun_apply, comp_apply, ConcreteCategory.hom_ofHom]`
   before `exact congrFun (hP.reindex_naturality g f.unop).symm d`.
   Delete the `simp only` line; in v4.29 the goal is already the
   function equation the `exact` closes.
-- Adaptation in `Internal/PresheafIRProto/Functor.lean`
+- Adaptation in `Prototypes/PresheafIRProto/Functor.lean`
   (`arityHomEquivNatTrans`): the backward direction re-states
   naturality with `NatTrans.naturality_apply α f.op b`. Replace it
   with `FunctorToTypes.naturality _ _ α f.op b`.
@@ -160,17 +170,17 @@ genuinely new (decide the adaptation, add a category here).
   `Slice/W.lean` and `wValidBool_eq_true_iff` in `Slice/Decidable.lean`
   (both `WType.rec`), `isHereditarilyNaturalBoolCore_eq_true_iff` in
   `Presheaf/Decidable.lean` (`SlicePFunctor.W.induction`),
-  `ofRose_toRose` in `Internal/ConcreteSyntax.lean` (`Ast.ind`),
+  `ofRose_toRose` in `Prototypes/ConcreteSyntax.lean` (`Ast.ind`),
   `length_spell` in `Data/Tree/Ranked/Preorder.lean`,
   `length_fold_le_of_growth` in
-  `Internal/Computability/CobhamFoldProto/Variable.lean`, and
+  `Prototypes/Computability/CobhamFoldProto/Variable.lean`, and
   `dropEntry_algPara` in
-  `Internal/Computability/CobhamFoldProto/Destruct.lean` (all three
+  `Prototypes/Computability/CobhamFoldProto/Destruct.lean` (all three
   `RankedAlphabet.Term.induction`),
   `scanFinal_replicate_false` in
-  `Internal/Computability/CobhamFoldProto/Layout.lean` (`Nat.rec`),
+  `Prototypes/Computability/CobhamFoldProto/Layout.lean` (`Nat.rec`),
   and `Term.fold_map` in
-  `Internal/Computability/CobhamFoldProto/Fold.lean`, where the
+  `Prototypes/Computability/CobhamFoldProto/Fold.lean`, where the
   unreduced application is not a motive but the carrier map
   `fun t ↦ e (Term.fold R alg t)` supplied to `Term.fold_unique`.
 - v4.29 symptom: the goal is `(fun w => ...) (WType.mk a f)` — the motive
@@ -230,7 +240,7 @@ genuinely new (decide the adaptation, add a category here).
   so, and `rw` closes a residual goal only with `with_reducible rfl`.
 - Adaptation: append `rfl`, which runs at default transparency:
   `rw [comp_get, whiskerLeft_get]; rfl`.
-- Second site: `Internal/PresheafIRProto/Codes.lean`'s
+- Second site: `Prototypes/PresheafIRProto/Codes.lean`'s
   `isFunctorial_pullback` closes its `reindex_id` field with a `rw`
   whose residual goal is `cast ⋯ d = cast ⋯ d`. The two transport
   proofs are definitionally equal by proof irrelevance but not
@@ -239,7 +249,7 @@ genuinely new (decide the adaptation, add a category here).
 ### 8. Derived `Repr` instances carry an unused precedence argument
 
 - Upstream cause: `FinSetSkel/Basic.lean` declares the objects with
-  `deriving DecidableEq, Repr`, and `Internal/ConcreteSyntax.lean`
+  `deriving DecidableEq, Repr`, and `Prototypes/ConcreteSyntax.lean`
   declares `Ann` with `deriving Repr, DecidableEq, Inhabited`.
 - v4.29 symptom: the `unusedArguments` env-linter reports
   `instReprFinSetSkel.repr argument 2 prec✝ : ℕ` (respectively
@@ -276,7 +286,7 @@ genuinely new (decide the adaptation, add a category here).
 
 ### 10. `simp` leaves a `cast`'s proof argument unfolded
 
-- Upstream cause: `Internal/PresheafIRProto/Codes.lean`'s
+- Upstream cause: `Prototypes/PresheafIRProto/Codes.lean`'s
   `isFunctorial_pullback` proves its `reindex_comp` field by
   `simp only [pullback] at d ⊢` followed by
   `rw [reindex_cast_shape (hh := ...), ← reindex_comp_apply P hP]`. The
@@ -318,14 +328,14 @@ genuinely new (decide the adaptation, add a category here).
   deprecated names.
 - v4.29 symptom: ``Unknown identifier `ite_eq_right` `` (and the three
   others), followed by `unsolved goals` wherever the failed `rw` left
-  the goal standing. The affected modules are `Internal/CanonicalSExpr.lean`,
-  `Internal/ConcreteSyntax.lean`, `Internal/ReadableSExpr.lean`,
+  the goal standing. The affected modules are `Prototypes/CanonicalSExpr.lean`,
+  `Prototypes/ConcreteSyntax.lean`, `Prototypes/ReadableSExpr.lean`,
   `CategoryTheory/FinCat/Basic.lean`, `CategoryTheory/FinCat/Hom.lean`,
   `Computability/BellantoniCook/Tree.lean`,
   `Computability/Cobham/RankedTree.lean`,
   `Computability/Cobham/Tree.lean`, `Data/Tree/Ranked/Code.lean`,
   `Data/Tree/Ranked/Preorder.lean`, `Data/W/Basic.lean`, and, under
-  `Internal/Computability/CobhamFoldProto/`, `Degenerate.lean`,
+  `Prototypes/Computability/CobhamFoldProto/`, `Degenerate.lean`,
   `Destruct.lean`, `Fold.lean`, `Layout.lean`, `SelfDelim.lean`,
   `SmashFree.lean`, and `Variable.lean`. Only a few of them appear in
   any one build log: lake does not attempt a module whose imports
@@ -366,7 +376,7 @@ genuinely new (decide the adaptation, add a category here).
 ### 13. `unusedArguments` reports a constant function
 
 - Upstream cause:
-  `Internal/Computability/CobhamFoldProto/Degenerate.lean` defines the
+  `Prototypes/Computability/CobhamFoldProto/Degenerate.lean` defines the
   terminal carrier's encoding, decoding, and algebra — `encUnit`,
   `decUnit`, and `algUnit` — as constant functions, each ignoring an
   argument its type obliges it to take.
@@ -437,7 +447,10 @@ refresh:
    context drifted but whose removed lines are unchanged. A category
    whose removed lines themselves changed, or a newly-ingested module
    carrying the same v4.29 incompatibility, needs the category extended
-   by hand.
+   by hand. An upstream module rename leaves the hunks themselves
+   valid: rewrite the old path to the new one throughout the patch
+   before re-applying, and rename the module in the exclusion list and
+   in the category descriptions above.
 3. Build and check the result with the same commands CI runs:
    `bash scripts/tests/test-lint-driver.sh`, `lake build Geb`,
    `lake test`, `lake lint -- Geb`, and
@@ -499,7 +512,7 @@ own surfaces in the refresh workflow's build.
 
 ### Current exclusions
 
-- `Geb.Internal.Computability.TreeScanner` (and its `Machine`, `Steps`,
+- `Geb.Prototypes.Computability.TreeScanner` (and its `Machine`, `Steps`,
   and `Bound` submodules) imports
   `Cslib.Computability.Machines.Turing.MultiTape.Deterministic` and
   `Cslib.Computability.Machines.Turing.MultiTape.TapeLemmas`, and uses

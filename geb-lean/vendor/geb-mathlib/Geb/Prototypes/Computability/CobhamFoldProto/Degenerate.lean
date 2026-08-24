@@ -6,12 +6,12 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Expr
+public import Geb.Prototypes.Computability.CobhamFoldProto.Expr
 
 /-!
 # The recognizer as the fold's degenerate instance
 
-The fold of `Geb/Internal/Computability/CobhamFoldProto/Expr.lean` at the
+The fold of `Geb/Prototypes/Computability/CobhamFoldProto/Expr.lean` at the
 terminal algebra — the carrier `Unit`, whose encoding is empty, so `p = 0` —
 meets the recognizer of `Geb/Mathlib/Computability/Cobham/RankedTree.lean` at
 each layer: the state layout, the dispatch window, the readout window, the bits

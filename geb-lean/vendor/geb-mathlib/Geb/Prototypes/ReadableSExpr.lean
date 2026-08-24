@@ -6,7 +6,7 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.ConcreteSyntax
+public import Geb.Prototypes.ConcreteSyntax
 
 /-!
 # A readable spelling of the rose syntax

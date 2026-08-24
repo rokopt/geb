@@ -6,15 +6,15 @@ Authors: Terence Rokop
 -- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.Bound
-public import Geb.Internal.Computability.CobhamFoldProto.Fold
-public import Geb.Internal.Computability.CobhamFoldProto.SelfDelim
+public import Geb.Prototypes.Computability.CobhamFoldProto.Bound
+public import Geb.Prototypes.Computability.CobhamFoldProto.Fold
+public import Geb.Prototypes.Computability.CobhamFoldProto.SelfDelim
 public import Geb.Mathlib.Computability.Cobham.RankedTree
 
 /-!
 # The fold at a bitstring carrier
 
-`Geb/Internal/Computability/CobhamFoldProto/Expr.lean` folds at a carrier with a
+`Geb/Prototypes/Computability/CobhamFoldProto/Expr.lean` folds at a carrier with a
 fixed-width bit encoding, dispatching each step on a constant window that holds
 the whole stack the step reads. This module folds at the carrier `List Bool`
 with the algebra's operations supplied as expressions of Cobham's class, so the
@@ -90,8 +90,8 @@ carrier is unrestricted and the algebra is whatever the class can define.
 ## Implementation notes
 
 Names here carry a `V` suffix where their fixed-width counterparts in
-`Geb/Internal/Computability/CobhamFoldProto/Layout.lean` and
-`Geb/Internal/Computability/CobhamFoldProto/Expr.lean` carry an `F` or, where
+`Geb/Prototypes/Computability/CobhamFoldProto/Layout.lean` and
+`Geb/Prototypes/Computability/CobhamFoldProto/Expr.lean` carry an `F` or, where
 the fixed-width name came first, no suffix at all: the two constructions define
 the same notions at a variable-width and at a fixed-width carrier, and the
 suffix is what keeps them apart in one namespace.

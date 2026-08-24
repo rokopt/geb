@@ -5,7 +5,7 @@ Authors: Terence Rokop
 -/
 module
 
-public import Geb.Internal.Computability.CobhamFoldProto.SmashFree
+public import Geb.Prototypes.Computability.CobhamFoldProto.SmashFree
 
 /-!
 # The term algebra's constructor in the fold's language

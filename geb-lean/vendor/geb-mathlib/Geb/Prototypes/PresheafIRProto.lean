@@ -5,9 +5,9 @@ Authors: Terence Rokop
 -/
 module
 
-public import Geb.Internal.PresheafIRProto.Basic
-public import Geb.Internal.PresheafIRProto.Codes
-public import Geb.Internal.PresheafIRProto.Functor
+public import Geb.Prototypes.PresheafIRProto.Basic
+public import Geb.Prototypes.PresheafIRProto.Codes
+public import Geb.Prototypes.PresheafIRProto.Functor
 
 /-!
 # PresheafIRProto — index
