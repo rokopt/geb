@@ -5752,8 +5752,8 @@ end AlternativeConstruction
 
 This section provides introduction and elimination rules for functors
 to, from, and between connected Grothendieck constructions, analogous to
-`FunctorToData`, `FunctorFromData`, and `FunctorBetweenData` in
-`Grothendieck.lean`.
+`FunctorToData`, `FunctorFromData`, and the `Functor…To…Data`
+family in `Grothendieck.lean`.
 
 The connected Grothendieck construction projects to `Arrow C`, so functors
 are characterized relative to this projection via the "diagonal construction".

@@ -4466,755 +4466,1001 @@ end FunctorToDataCategory
 end GrothendieckContra'
 
 /-!
-## Functors Between Grothendieck Constructions (Covariant Case)
+## Functors between Grothendieck constructions
 
-This section defines bundled data for functors between two covariant Grothendieck
-constructions `Grothendieck G ⥤ Grothendieck F` where `G : C ⥤ Cat` and
-`F : D ⥤ Cat`.
+A functor out of a Grothendieck construction is determined by the
+`FunctorFromData` of that construction, valued in the codomain category.
+When the codomain is itself a Grothendieck construction, each component
+of that data which is valued in the codomain is in turn determined by the
+`FunctorToData` of the codomain construction.  Composing the two
+characterizations gives, for each of the four pairs of variances, a
+category of data equivalent to the functor category between the two
+Grothendieck constructions.
 
-A functor between Grothendieck constructions is characterized by:
-- A base functor `baseFib : C ⥤ D`
-- For each `c : C`, a functor `fibFib c : G.obj c ⥤ F.obj (baseFib.obj c)`
-- Coherent fiber morphisms relating these across base morphisms
+The fibrewise component of such data is a family of base functors
+`G.obj c ⥤ D`, one for each object `c` of the domain construction's base
+category, and the transition component carries a natural transformation
+between members of that family for each morphism of the base category.
+A single base functor `C ⥤ D` is the special case in which every member
+of the family is constant.
 -/
 
 section FunctorBetween
 
-universe vC vD uC uD
+universe vC uC vD uD vG uG vF uF
 
-variable {C : Type uC} [Category.{vC} C] (G : C ⥤ Cat.{vC, uC})
-variable {D : Type uD} [Category.{vD} D] (F : D ⥤ Cat.{vD, uD})
+namespace Grothendieck
 
-/--
-The base-fiber functor: assigns to each `c : C` a base object in `D`.
--/
-abbrev FunctorBetweenBaseFib := C ⥤ D
+section Precomp
 
-/--
-The fiber-fiber functor: for each `c : C`, a functor from `G.obj c` to
-`F.obj (baseFib.obj c)`.
--/
-abbrev FunctorBetweenFibFib (baseFib : FunctorBetweenBaseFib (C := C) (D := D)) :=
-  ∀ c, G.obj c ⥤ F.obj (baseFib.obj c)
+variable {C : Type uC} [Category.{vC} C] {F : C ⥤ Cat.{vF, uF}}
+variable {D₁ : Type*} [Category D₁] {D₂ : Type*} [Category D₂]
 
 /--
-The cross-fiber morphism component: for each `f : c ⟶ c'` and `x : G.obj c`,
-a morphism from the transported source fiber to the destination fiber.
-
-For `f : c ⟶ c'` and `x : G.obj c`, the fiber morphism in `Grothendieck F`
-goes from `(F.map (baseFib.map f)).obj ((fibFib c).obj x)` in the transported
-source fiber to `(fibFib c').obj ((G.map f).obj x)` in the destination fiber.
+Precomposition of the data determining a functor into `Grothendieck F` with a
+functor `K : D₁ ⥤ D₂`.
 -/
-abbrev FunctorBetweenFibHomCrossApp (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :=
-  ∀ {c c' : C} (f : c ⟶ c') (x : G.obj c),
-    (F.map (baseFib.map f)).toFunctor.obj ((fibFib c).obj x) ⟶
-      (fibFib c').obj ((G.map f).toFunctor.obj x)
+def FunctorToData.precomp (data : FunctorToData F (D := D₂)) (K : D₁ ⥤ D₂) :
+    FunctorToData F (D := D₁) :=
+  ofFunctor F (K ⋙ functorTo F data)
 
-/--
-The naturality condition for cross-fiber morphisms: for each `f : c ⟶ c'` and
-`g : x ⟶ y` in `G.obj c`, the appropriate square commutes.
--/
-abbrev FunctorBetweenFibHomCrossNat (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib)
-    (fibHomCrossApp : FunctorBetweenFibHomCrossApp G F baseFib fibFib) :=
-  ∀ {c c' : C} (f : c ⟶ c') {x y : G.obj c} (g : x ⟶ y),
-    (F.map (baseFib.map f)).toFunctor.map ((fibFib c).map g) ≫ fibHomCrossApp f y =
-    fibHomCrossApp f x ≫ (fibFib c').map ((G.map f).toFunctor.map g)
-
-/--
-The equality proof for identity morphisms in the target Grothendieck.
-States that `(F.map (baseFib.map (𝟙 c))).obj ((fibFib c).obj x)` equals
-`(fibFib c).obj ((G.map (𝟙 c)).obj x)`.
--/
-abbrev FunctorBetweenBaseHomEqId (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :=
-  ∀ (c : C) (x : G.obj c),
-    (F.map (baseFib.map (𝟙 c))).toFunctor.obj ((fibFib c).obj x) =
-      (fibFib c).obj ((G.map (𝟙 c)).toFunctor.obj x)
-
-/--
-Derive the identity equality from functor laws.
--/
-lemma functorBetweenBaseHomEqIdProof
-    (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :
-    FunctorBetweenBaseHomEqId G F baseFib fibFib := by
-  intro c x
-  simp only [baseFib.map_id, F.map_id, G.map_id]
-  rfl
-
-/--
-The equality proof for composite morphisms in the target Grothendieck.
-States that the result of applying the composite is equal to applying
-the morphisms sequentially.
--/
-abbrev FunctorBetweenBaseHomEqComp (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'') (x : G.obj c),
-    (F.map (baseFib.map (f ≫ g))).toFunctor.obj ((fibFib c).obj x) =
-    (F.map (baseFib.map g)).toFunctor.obj
-      ((F.map (baseFib.map f)).toFunctor.obj ((fibFib c).obj x))
-
-/--
-Derive the composition equality from functor laws.
--/
-lemma functorBetweenBaseHomEqCompProof
-    (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :
-    FunctorBetweenBaseHomEqComp G F baseFib fibFib := by
-  intro c c' c'' f g x
-  simp only [baseFib.map_comp]
-  exact congrFun (congrArg Functor.obj
-    (congrArg (fun x => x.toFunctor) (F.map_comp (baseFib.map f) (baseFib.map g))))
-    ((fibFib c).obj x)
-
-/--
-The identity coherence: `fibHomCrossApp (𝟙 c) x` equals the derived eqToHom.
--/
-abbrev FunctorBetweenBaseHomId (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib)
-    (fibHomCrossApp : FunctorBetweenFibHomCrossApp G F baseFib fibFib) :=
-  ∀ (c : C) (x : G.obj c),
-    fibHomCrossApp (𝟙 c) x =
-      eqToHom (functorBetweenBaseHomEqIdProof G F baseFib fibFib c x)
-
-/--
-The equality proof relating `(G.map g).obj ((G.map f).obj x)` to `(G.map (f ≫ g)).obj x`.
-This comes from `G.map_comp`.
--/
-abbrev FunctorBetweenGMapCompEq (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'') (x : G.obj c),
-    (fibFib c'').obj ((G.map g).toFunctor.obj ((G.map f).toFunctor.obj x)) =
-    (fibFib c'').obj ((G.map (f ≫ g)).toFunctor.obj x)
-
-/--
-Derive the G.map_comp equality from functor laws.
--/
-lemma functorBetweenGMapCompEqProof
-    (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib) :
-    FunctorBetweenGMapCompEq G F baseFib fibFib := by
-  intro c c' c'' f g x
-  exact congrArg (fibFib c'').obj
-    (congrFun (congrArg Functor.obj
-      (congrArg (fun x => x.toFunctor) (G.map_comp f g)).symm) x)
-
-/--
-The composition coherence: `fibHomCrossApp (f ≫ g) x` decomposes correctly.
--/
-abbrev FunctorBetweenBaseHomComp (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenFibFib G F baseFib)
-    (fibHomCrossApp : FunctorBetweenFibHomCrossApp G F baseFib fibFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'') (x : G.obj c),
-    fibHomCrossApp (f ≫ g) x =
-    eqToHom (functorBetweenBaseHomEqCompProof G F baseFib fibFib f g x) ≫
-    (F.map (baseFib.map g)).toFunctor.map (fibHomCrossApp f x) ≫
-    fibHomCrossApp g ((G.map f).toFunctor.obj x) ≫
-    eqToHom (functorBetweenGMapCompEqProof G F baseFib fibFib f g x)
-
-/--
-Bundled data for a functor between covariant Grothendieck constructions
-`Grothendieck G ⥤ Grothendieck F`.
-
-A functor `H : Grothendieck G ⥤ Grothendieck F` maps:
-- Objects: `H.obj (c, x) = (baseFib.obj c, (fibFib c).obj x)`
-- Morphisms: `H.map (f, φ) = (baseFib.map f, fibHomCrossApp f x ≫ (fibFib c').map φ)`
-
-The coherence conditions ensure functoriality.
--/
-structure FunctorBetweenData where
-  /-- The base functor `C ⥤ D` -/
-  baseFib : FunctorBetweenBaseFib (C := C) (D := D)
-  /-- Fiber functors: for each `c : C`, a functor `G.obj c ⥤ F.obj (baseFib.obj c)` -/
-  fibFib : FunctorBetweenFibFib G F baseFib
-  /-- Cross-fiber morphisms: for each `f : c ⟶ c'` and `x : G.obj c` -/
-  fibHomCrossApp : FunctorBetweenFibHomCrossApp G F baseFib fibFib
-  /-- Naturality for cross-fiber morphisms -/
-  fibHomCrossNat : FunctorBetweenFibHomCrossNat G F baseFib fibFib fibHomCrossApp
-  /-- Identity coherence for cross-fiber morphisms -/
-  baseHomId : FunctorBetweenBaseHomId G F baseFib fibFib fibHomCrossApp
-  /-- Composition coherence for cross-fiber morphisms -/
-  baseHomComp : FunctorBetweenBaseHomComp G F baseFib fibFib fibHomCrossApp
-
-variable (data : FunctorBetweenData G F)
-
-/-! ### Inner construction: fiber functors using FunctorTo
-
-For each `c : C`, we build a functor `G.obj c ⥤ Grothendieck F` using
-`FunctorTo`. The base functor is constant at `baseFib.obj c`, so the
-coherence conditions become trivial.
--/
-
-/--
-The constant base functor for the inner FunctorTo construction.
-For each `c : C`, this is the constant functor from `G.obj c` to `D`
-at `baseFib.obj c`.
--/
-def functorBetweenInnerBaseFunc (c : C) : G.obj c ⥤ D :=
-  (Functor.const (G.obj c)).obj (data.baseFib.obj c)
-
-/--
-The fiber objects for the inner FunctorTo construction.
-For `x : G.obj c`, this is `(fibFib c).obj x`.
--/
-def functorBetweenInnerFib (c : C) (x : G.obj c) :
-    F.obj ((functorBetweenInnerBaseFunc G F data c).obj x) :=
-  (data.fibFib c).obj x
-
-/--
-The equality proof for `functorBetweenInnerHom`. Since the base functor is constant
-(mapping everything to `𝟙`), `F.map (𝟙 d)` acts as the identity on objects.
--/
-lemma functorBetweenInnerHom_eq (c : C) (x : G.obj c) :
-    (F.map ((functorBetweenInnerBaseFunc G F data c).map (𝟙 x))).toFunctor.obj
-      (functorBetweenInnerFib G F data c x) =
-    functorBetweenInnerFib G F data c x := by
-  simp only [functorBetweenInnerBaseFunc, functorBetweenInnerFib, Functor.const_obj_map]
-  exact congrFun (congrArg Functor.obj (congrArg Cat.Hom.toFunctor (F.map_id _))) _
-
-/--
-The fiber morphisms for the inner FunctorTo construction.
-Since the base functor is constant, the transport is trivial and
-the fiber morphism is just `(fibFib c).map φ`.
--/
-def functorBetweenInnerHom (c : C) {x y : G.obj c} (φ : x ⟶ y) :
-    (F.map ((functorBetweenInnerBaseFunc G F data c).map φ)).toFunctor.obj
-      (functorBetweenInnerFib G F data c x) ⟶
-    functorBetweenInnerFib G F data c y :=
-  eqToHom (functorBetweenInnerHom_eq G F data c x) ≫
-    (data.fibFib c).map φ
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Identity coherence for the inner FunctorTo. Trivial since the base is constant.
--/
-theorem functorBetweenInnerHom_id (c : C) (x : G.obj c) :
-    functorBetweenInnerHom G F data c (𝟙 x) =
-      eqToHom (Grothendieck.functorToEqIdProof F
-        (functorBetweenInnerBaseFunc G F data c)
-        (functorBetweenInnerFib G F data c) x) := by
-  simp only [functorBetweenInnerHom, functorBetweenInnerBaseFunc,
-    functorBetweenInnerFib, Functor.const_obj_obj, Functor.const_obj_map,
-    (data.fibFib c).map_id, Category.comp_id]
-
-/--
-When `H : A = 𝟭 C`, then `A.map f = f` (with appropriate `eqToHom` casts).
--/
-lemma functor_map_of_eq_id {E : Type*} [Category E] {A : E ⥤ E}
-    (H : A = 𝟭 E) {x y : E} (f : x ⟶ y) :
-    A.map f = eqToHom (congrFun (congrArg Functor.obj H) x) ≫ f ≫
-      eqToHom (congrFun (congrArg Functor.obj H) y).symm := by
-  subst H
-  simp
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Composition coherence for the inner FunctorTo.
--/
-theorem functorBetweenInnerHom_comp (c : C) {x y z : G.obj c}
-    (φ : x ⟶ y) (ψ : y ⟶ z) :
-    functorBetweenInnerHom G F data c (φ ≫ ψ) =
-      eqToHom (Grothendieck.functorToEqCompProof F
-        (functorBetweenInnerBaseFunc G F data c)
-        (functorBetweenInnerFib G F data c) φ ψ) ≫
-      (F.map ((functorBetweenInnerBaseFunc G F data c).map ψ)).toFunctor.map
-        (functorBetweenInnerHom G F data c φ) ≫
-      functorBetweenInnerHom G F data c ψ := by
-  simp only [functorBetweenInnerHom, functorBetweenInnerBaseFunc, functorBetweenInnerFib,
-    Functor.const_obj_obj, Functor.const_obj_map, (data.fibFib c).map_comp]
-  have hFid : (F.map (𝟙 (data.baseFib.obj c))).toFunctor =
-      𝟭 (F.obj (data.baseFib.obj c)) := congrArg Cat.Hom.toFunctor (F.map_id _)
-  rw [functor_map_of_eq_id hFid]
-  cat_disch
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-The proof term from `functorBetweenInnerHom` can be expressed explicitly.
-Since the base functor is constant, `(F.map (𝟙 d)).obj x = x`.
--/
-lemma functorBetweenInnerHom_proof (c : C) (x : G.obj c) :
-    (F.map ((functorBetweenInnerBaseFunc G F data c).map (𝟙 x))).toFunctor.obj
-      (functorBetweenInnerFib G F data c x) =
-    functorBetweenInnerFib G F data c x := by
-  simp only [functorBetweenInnerBaseFunc, Functor.const_obj_map]
-  have hFid : (F.map (𝟙 (data.baseFib.obj c))).toFunctor =
-      𝟭 (F.obj (data.baseFib.obj c)) := congrArg Cat.Hom.toFunctor (F.map_id _)
-  simp only [hFid, Functor.id_obj]
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-The `eqToHom` from `functorBetweenInnerHom_eq` is identity on objects after applying `F.map_id`.
-This is because `(F.map (𝟙 d)).obj x = (𝟭 _).obj x = x`.
--/
+/-- `functorTo` turns precomposition of data into precomposition of functors. -/
 @[simp]
-lemma eqToHom_functorBetweenInnerHom_eq (c : C) (x : G.obj c) :
-    eqToHom (functorBetweenInnerHom_eq G F data c x) =
-    eqToHom (congrFun (congrArg Functor.obj
-      (congrArg Cat.Hom.toFunctor (F.map_id (data.baseFib.obj c)))) _) := by
-  simp only [functorBetweenInnerBaseFunc, functorBetweenInnerFib, Functor.const_obj_map]
+theorem functorTo_precomp (data : FunctorToData F (D := D₂)) (K : D₁ ⥤ D₂) :
+    functorTo F (data.precomp K) = K ⋙ functorTo F data := rfl
+
+/-- The base functor of precomposed data is the precomposed base functor. -/
+@[simp]
+theorem precomp_baseFunc (data : FunctorToData F (D := D₂)) (K : D₁ ⥤ D₂) :
+    (data.precomp K).baseFunc = K ⋙ data.baseFunc := rfl
+
+end Precomp
+
+end Grothendieck
+
+
+namespace GrothendieckContra'
+
+section Precomp
+
+variable {C : Type uC} [Category.{vC} C] {F' : Cᵒᵖ' ⥤ Cat.{vF, uF}}
+variable {E₁ : Type*} [Category E₁] {E₂ : Type*} [Category E₂]
 
 /--
-Mapping `eqToHom (functorBetweenInnerHom_eq ...)` through `(F.map g).toFunctor.map`
-yields an `eqToHom`.
+Precomposition of the data determining a functor into `GrothendieckContra' F'`
+with a functor `K : E₁ ⥤ E₂`.
 -/
-lemma functor_map_eqToHom_functorBetweenInnerHom_eq {c : C} (x : G.obj c)
-    {d : D} (g : data.baseFib.obj c ⟶ d) :
-    (F.map g).toFunctor.map (eqToHom (functorBetweenInnerHom_eq G F data c x)) =
-    eqToHom (congrArg (F.map g).toFunctor.obj
-      (functorBetweenInnerHom_eq G F data c x)) := by
-  exact functor_map_eqToHom (F.map g).toFunctor (functorBetweenInnerHom_eq G F data c x)
+def FunctorToData.precomp (data : FunctorToData F' (E := E₂)) (K : E₁ ⥤ E₂) :
+    FunctorToData F' (E := E₁) :=
+  ofFunctor (K ⋙ functorTo data)
+
+/-- `functorTo` turns precomposition of data into precomposition of functors. -/
+@[simp]
+theorem functorTo_precomp (data : FunctorToData F' (E := E₂)) (K : E₁ ⥤ E₂) :
+    functorTo (data.precomp K) = K ⋙ functorTo data := rfl
+
+/-- The base functor of precomposed data is the precomposed base functor. -/
+@[simp]
+theorem precomp_baseFunc (data : FunctorToData F' (E := E₂)) (K : E₁ ⥤ E₂) :
+    (data.precomp K).baseFunc = K ⋙ data.baseFunc := rfl
+
+end Precomp
+
+end GrothendieckContra'
+
+/-!
+## Functors between two covariant Grothendieck constructions
+-/
+
+section FunctorCovToCov
+
+variable {C : Type uC} [Category.{vC} C] (G : C ⥤ Cat.{vG, uG})
+variable {D : Type uD} [Category.{vD} D] (F : D ⥤ Cat.{vF, uF})
 
 /--
-The equality `functorBetweenInnerHom_eq` becomes reflexive after applying
-`(F.map g).toFunctor.obj`.
+The fibrewise component: for each `c : C`, the data determining a functor
+`G.obj c ⥤ Grothendieck F`.
 -/
-lemma functorBetweenInnerHom_eq_transport {c : C} (x : G.obj c)
-    {d : D} (g : data.baseFib.obj c ⟶ d) :
-    (F.map g).toFunctor.obj ((F.map (𝟙 (data.baseFib.obj c))).toFunctor.obj
-      ((data.fibFib c).obj x)) =
-    (F.map g).toFunctor.obj ((data.fibFib c).obj x) := by
-  have h : (F.map (𝟙 (data.baseFib.obj c))).toFunctor = 𝟭 _ :=
-    congrArg Cat.Hom.toFunctor (F.map_id _)
-  simp only [h, Functor.id_obj]
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Transport of `functorBetweenInnerHom` through `(F.map g).toFunctor.map` relates to
-the underlying `(data.fibFib c).toFunctor.map φ` via `eqToHom`.
--/
-lemma functorBetweenInnerHom_transport {c : C} {x y : G.obj c} (φ : x ⟶ y)
-    {d : D} (g : data.baseFib.obj c ⟶ d) :
-    (F.map g).toFunctor.map (functorBetweenInnerHom G F data c φ) =
-    eqToHom (functorBetweenInnerHom_eq_transport G F data x g) ≫
-      (F.map g).toFunctor.map ((data.fibFib c).map φ) := by
-  simp only [functorBetweenInnerHom, Functor.map_comp]
-  rw [functor_map_eqToHom_functorBetweenInnerHom_eq]
+abbrev FunctorCovToCovFib := ∀ c : C, Grothendieck.FunctorToData F (D := G.obj c)
 
 /--
-The inner FunctorToData for each `c : C`.
+The family of fibre functors determined by a `FunctorCovToCovFib`.
 -/
-def functorBetweenInnerToData (c : C) :
-    Grothendieck.FunctorToData (C := D) (D := G.obj c) F where
-  baseFunc := functorBetweenInnerBaseFunc G F data c
-  fib := functorBetweenInnerFib G F data c
-  hom := functorBetweenInnerHom G F data c
-  hom_id := functorBetweenInnerHom_id G F data c
-  hom_comp := functorBetweenInnerHom_comp G F data c
+abbrev FunctorCovToCovFibFunc (fibTo : FunctorCovToCovFib G F) :
+    Grothendieck.FunctorFromFib G (E := Grothendieck F) :=
+  fun c => Grothendieck.functorTo F (fibTo c)
 
 /--
-The fiber functor for the outer FunctorFrom construction.
-For each `c : C`, this gives a functor `G.obj c ⥤ Grothendieck F`.
+The transition component: for each `f : c ⟶ c'`, the data determining a natural
+transformation from the `c`-fibre functor to the `c'`-fibre functor precomposed
+with `G.map f`.
 -/
-def functorBetweenFibFunc (c : C) : G.obj c ⥤ Grothendieck F :=
-  Grothendieck.functorTo F (functorBetweenInnerToData G F data c)
-
-/-! ### Outer construction: using FunctorFrom
-
-Now we build the natural transformations between fiber functors and
-prove the coherence conditions for FunctorFrom.
--/
+abbrev FunctorCovToCovHom (fibTo : FunctorCovToCovFib G F) :=
+  ∀ {c c' : C} (f : c ⟶ c'),
+    Grothendieck.NatTransToData F (fibTo c) ((fibTo c').precomp (G.map f).toFunctor)
 
 /--
-The natural transformation component for the outer FunctorFrom construction.
-For `f : c ⟶ c'` and `x : G.obj c`, this is the morphism
-`(functorBetweenFibFunc c).obj x ⟶ (functorBetweenFibFunc c').obj ((G.map f).obj x)`
-in `Grothendieck F`.
+The family of natural transformations determined by a `FunctorCovToCovHom`.
 -/
-def functorBetweenHomNatApp {c c' : C} (f : c ⟶ c') (x : G.obj c) :
-    (functorBetweenFibFunc G F data c).obj x ⟶
-    (functorBetweenFibFunc G F data c').obj ((G.map f).toFunctor.obj x) :=
-  ⟨data.baseFib.map f, data.fibHomCrossApp f x⟩
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Naturality of `functorBetweenHomNatApp`: for `φ : x ⟶ y` in `G.obj c`,
-the square commutes.
--/
-theorem functorBetweenHomNat_naturality {c c' : C} (f : c ⟶ c')
-    {x y : G.obj c} (φ : x ⟶ y) :
-    (functorBetweenFibFunc G F data c).map φ ≫
-      functorBetweenHomNatApp G F data f y =
-    functorBetweenHomNatApp G F data f x ≫
-      (functorBetweenFibFunc G F data c').map ((G.map f).toFunctor.map φ) := by
-  refine Grothendieck.ext _ _ ?_ ?_
-  · simp only [functorBetweenFibFunc, functorBetweenHomNatApp,
-      Grothendieck.functorTo, Grothendieck.comp_base,
-      functorBetweenInnerToData, functorBetweenInnerBaseFunc,
-      Functor.const_obj_map]
-    simp
-  · simp only [functorBetweenFibFunc, functorBetweenHomNatApp,
-      Grothendieck.functorTo, Grothendieck.comp_fiber,
-      functorBetweenInnerToData, functorBetweenInnerBaseFunc,
-      functorBetweenInnerFib, Functor.const_obj_obj, Functor.const_obj_map,
-      functorBetweenInnerHom]
-    simp only [Functor.map_comp, functor_map_eqToHom_functorBetweenInnerHom_eq]
-    have hFmapId : (F.map (𝟙 (data.baseFib.obj c'))).toFunctor = 𝟭 _ := by
-      simp only [F.map_id, Cat.id_eq_id]
-    rw [functor_map_of_eq_id hFmapId]
-    have hNat := data.fibHomCrossNat f φ
-    cat_disch
+abbrev FunctorCovToCovHomNat (fibTo : FunctorCovToCovFib G F)
+    (homNat : FunctorCovToCovHom G F fibTo) :
+    Grothendieck.FunctorFromHom G (FunctorCovToCovFibFunc G F fibTo) :=
+  fun f => Grothendieck.natTransTo F _ _ (homNat f)
 
 /--
-The natural transformation `functorBetweenFibFunc c ⟶ G.map f ⋙ functorBetweenFibFunc c'`
-for the outer FunctorFrom construction.
+The data determining a functor `Grothendieck G ⥤ Grothendieck F`.
 -/
-def functorBetweenHomNat {c c' : C} (f : c ⟶ c') :
-    functorBetweenFibFunc G F data c ⟶
-    (G.map f).toFunctor ⋙ functorBetweenFibFunc G F data c' where
-  app := functorBetweenHomNatApp G F data f
-  naturality _ _ φ := functorBetweenHomNat_naturality G F data f φ
+structure FunctorCovToCovData where
+  /-- Fibrewise data determining a functor `G.obj c ⥤ Grothendieck F`. -/
+  fibTo : FunctorCovToCovFib G F
+  /-- Transition data along morphisms of the base category `C`. -/
+  homNat : FunctorCovToCovHom G F fibTo
+  /-- Identity coherence. -/
+  homNat_id : Grothendieck.FunctorFromHomId G (FunctorCovToCovFibFunc G F fibTo)
+    (FunctorCovToCovHomNat G F fibTo homNat)
+  /-- Composition coherence. -/
+  homNat_comp : Grothendieck.FunctorFromHomComp G (FunctorCovToCovFibFunc G F fibTo)
+    (FunctorCovToCovHomNat G F fibTo homNat)
 
-set_option backward.isDefEq.respectTransparency false in
-/--
-Identity coherence for the outer FunctorFrom construction.
--/
-theorem functorBetweenHomNat_id (c : C) :
-    functorBetweenHomNat G F data (𝟙 c) =
-      eqToHom (by simp only [CategoryTheory.Functor.map_id]; rfl) := by
-  ext x
-  refine Grothendieck.ext _ _ ?_ ?_
-  · simp only [functorBetweenHomNat, functorBetweenHomNatApp, data.baseFib.map_id, eqToHom_app,
-      functorBetweenFibFunc, Grothendieck.functorTo, functorBetweenInnerToData,
-      functorBetweenInnerBaseFunc, Functor.const_obj_obj]
-    simp
-  · simp only [functorBetweenHomNat, functorBetweenHomNatApp,
-      functorBetweenFibFunc, Grothendieck.functorTo, functorBetweenInnerToData,
-      functorBetweenInnerFib]
-    simp_rw [data.baseHomId c x]
-    simp only [eqToHom_trans, Grothendieck.eqToHom_app_fiber]
+variable {G F}
+
+/-- The `FunctorFromData` underlying a `FunctorCovToCovData`. -/
+def FunctorCovToCovData.toFromData (data : FunctorCovToCovData G F) :
+    Grothendieck.FunctorFromData G (E := Grothendieck F) where
+  fib := FunctorCovToCovFibFunc G F data.fibTo
+  hom := FunctorCovToCovHomNat G F data.fibTo data.homNat
+  hom_id := data.homNat_id
+  hom_comp := data.homNat_comp
+
+/-- The `FunctorCovToCovData` underlying a `FunctorFromData` into `Grothendieck F`. -/
+def FunctorCovToCovData.ofFromData
+    (data : Grothendieck.FunctorFromData G (E := Grothendieck F)) :
+    FunctorCovToCovData G F where
+  fibTo c := Grothendieck.ofFunctor F (data.fib c)
+  homNat f := Grothendieck.ofNatTrans F _ _ (data.hom f)
+  homNat_id := data.hom_id
+  homNat_comp := data.hom_comp
+
+/-- Recovering the underlying `FunctorFromData` data undoes its repackaging. -/
+theorem FunctorCovToCovData.toFromData_ofFromData
+    (data : Grothendieck.FunctorFromData G (E := Grothendieck F)) :
+    (FunctorCovToCovData.ofFromData data).toFromData = data := rfl
+
+/-- Repackaging the underlying `FunctorFromData` data recovers the original. -/
+theorem FunctorCovToCovData.ofFromData_toFromData (data : FunctorCovToCovData G F) :
+    FunctorCovToCovData.ofFromData data.toFromData = data := rfl
+
+/-- The family of base functors underlying a `FunctorCovToCovData`. -/
+abbrev FunctorCovToCovData.baseFunc (data : FunctorCovToCovData G F) (c : C) : G.obj c ⥤ D :=
+  (data.fibTo c).baseFunc
 
 /--
-When a functor maps the base of an eqToHom between Grothendieck objects with
-the same base, the result is the identity functor.
+The natural transformation between base functors carried by the transition data.
 -/
-lemma map_base_eqToHom_same_base {d : D} {x y : F.obj d}
-    (h : (⟨d, x⟩ : Grothendieck F) = ⟨d, y⟩) :
-    (F.map (eqToHom h).base).toFunctor = 𝟭 (F.obj d) := by
-  simp only [Grothendieck.base_eqToHom, eqToHom_refl, F.map_id, Cat.id_eq_id]
+abbrev FunctorCovToCovData.baseNat (data : FunctorCovToCovData G F) {c c' : C} (f : c ⟶ c') :
+    data.baseFunc c ⟶ (G.map f).toFunctor ⋙ data.baseFunc c' :=
+  (data.homNat f).baseNat
+
+/-- The functor `Grothendieck G ⥤ Grothendieck F` determined by the data. -/
+def FunctorCovToCovData.toFunctor (data : FunctorCovToCovData G F) :
+    Grothendieck G ⥤ Grothendieck F :=
+  Grothendieck.functorFromData G data.toFromData
+
+/-- The data determined by a functor `Grothendieck G ⥤ Grothendieck F`. -/
+def FunctorCovToCovData.ofFunctor (H : Grothendieck G ⥤ Grothendieck F) :
+    FunctorCovToCovData G F :=
+  FunctorCovToCovData.ofFromData (Grothendieck.ofFunctorFrom H)
+
+variable (G F)
+
+/-- The fibrewise components of a transformation of `FunctorCovToCovData`. -/
+abbrev NatTransCovToCovFib (dataG dataH : FunctorCovToCovData G F) :=
+  ∀ c : C, Grothendieck.NatTransToData F (dataG.fibTo c) (dataH.fibTo c)
+
+/-- The family of natural transformations determined by a `NatTransCovToCovFib`. -/
+abbrev NatTransCovToCovFibNat (dataG dataH : FunctorCovToCovData G F)
+    (fibNat : NatTransCovToCovFib G F dataG dataH) :
+    Grothendieck.NatTransFromFib G dataG.toFromData dataH.toFromData :=
+  fun c => Grothendieck.natTransTo F _ _ (fibNat c)
+
+/-- The data determining a natural transformation of functors
+`Grothendieck G ⥤ Grothendieck F`. -/
+@[ext]
+structure NatTransCovToCovData (dataG dataH : FunctorCovToCovData G F) where
+  /-- Fibrewise transformation data. -/
+  fibNat : NatTransCovToCovFib G F dataG dataH
+  /-- Coherence with the transition data. -/
+  coherence : Grothendieck.NatTransFromCoherence G dataG.toFromData dataH.toFromData
+    (NatTransCovToCovFibNat G F dataG dataH fibNat)
+
+variable {G F}
+
+/-- The `NatTransFromData` underlying a `NatTransCovToCovData`. -/
+def NatTransCovToCovData.toFromData {dataG dataH : FunctorCovToCovData G F}
+    (nat : NatTransCovToCovData G F dataG dataH) :
+    dataG.toFromData ⟶ dataH.toFromData where
+  fibNat := NatTransCovToCovFibNat G F dataG dataH nat.fibNat
+  coherence := nat.coherence
+
+/-- The `NatTransCovToCovData` underlying a `NatTransFromData`. -/
+def NatTransCovToCovData.ofFromData {dataG dataH : FunctorCovToCovData G F}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    NatTransCovToCovData G F dataG dataH where
+  fibNat c := Grothendieck.ofNatTrans F _ _ (nat.fibNat c)
+  coherence := nat.coherence
+
+/-- Recovering the underlying `NatTransFromData` undoes its repackaging. -/
+theorem NatTransCovToCovData.toFromData_ofFromData {dataG dataH : FunctorCovToCovData G F}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    (NatTransCovToCovData.ofFromData nat).toFromData = nat := rfl
+
+/-- Repackaging the underlying `NatTransFromData` recovers the original. -/
+theorem NatTransCovToCovData.ofFromData_toFromData {dataG dataH : FunctorCovToCovData G F}
+    (nat : NatTransCovToCovData G F dataG dataH) :
+    NatTransCovToCovData.ofFromData nat.toFromData = nat := rfl
+
+/-- The identity transformation of `FunctorCovToCovData`. -/
+def NatTransCovToCovData.id (data : FunctorCovToCovData G F) :
+    NatTransCovToCovData G F data data :=
+  NatTransCovToCovData.ofFromData (𝟙 data.toFromData)
+
+/-- Composition of transformations of `FunctorCovToCovData`. -/
+def NatTransCovToCovData.comp {dataG dataH dataK : FunctorCovToCovData G F}
+    (nat₁ : NatTransCovToCovData G F dataG dataH)
+    (nat₂ : NatTransCovToCovData G F dataH dataK) :
+    NatTransCovToCovData G F dataG dataK :=
+  NatTransCovToCovData.ofFromData (nat₁.toFromData ≫ nat₂.toFromData)
+
+variable (G F)
+
+/-- The category of data determining functors `Grothendieck G ⥤ Grothendieck F`. -/
+instance functorCovToCovDataCategory : Category (FunctorCovToCovData G F) where
+  Hom := NatTransCovToCovData G F
+  id := NatTransCovToCovData.id
+  comp := NatTransCovToCovData.comp
+  id_comp nat := by
+    unfold NatTransCovToCovData.id NatTransCovToCovData.comp
+    conv_rhs => rw [← NatTransCovToCovData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.id_comp _
+  comp_id nat := by
+    unfold NatTransCovToCovData.id NatTransCovToCovData.comp
+    conv_rhs => rw [← NatTransCovToCovData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.comp_id _
+  assoc nat₁ nat₂ nat₃ := by
+    unfold NatTransCovToCovData.comp
+    congr 1
+    exact Category.assoc _ _ _
+
+/-- The forward half of the isomorphism with `FunctorFromData`. -/
+def functorCovToCovDataToFromData :
+    FunctorCovToCovData G F ⥤ Grothendieck.FunctorFromData G (E := Grothendieck F) where
+  obj := FunctorCovToCovData.toFromData
+  map := NatTransCovToCovData.toFromData
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- The backward half of the isomorphism with `FunctorFromData`. -/
+def functorFromDataToCovToCovData :
+    Grothendieck.FunctorFromData G (E := Grothendieck F) ⥤ FunctorCovToCovData G F where
+  obj := FunctorCovToCovData.ofFromData
+  map {_ _} nat := NatTransCovToCovData.ofFromData nat
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- `FunctorCovToCovData` is isomorphic to `FunctorFromData` into `Grothendieck F`. -/
+def functorCovToCovDataEquivFromData :
+    FunctorCovToCovData G F ≌ Grothendieck.FunctorFromData G (E := Grothendieck F) where
+  functor := functorCovToCovDataToFromData G F
+  inverse := functorFromDataToCovToCovData G F
+  unitIso := Iso.refl _
+  counitIso := Iso.refl _
+  functor_unitIso_comp _ := Category.id_comp _
+
+/-- The category of `FunctorCovToCovData` is equivalent to the functor category
+`Grothendieck G ⥤ Grothendieck F`. -/
+def functorCovToCovDataEquivCat :
+    FunctorCovToCovData G F ≌ (Grothendieck G ⥤ Grothendieck F) :=
+  (functorCovToCovDataEquivFromData G F).trans (Grothendieck.functorFromDataEquivCat G)
+
+end FunctorCovToCov
+
+/-!
+## Functors from a covariant to a contravariant Grothendieck construction
+-/
+
+section FunctorCovToContra
+
+variable {C : Type uC} [Category.{vC} C] (G : C ⥤ Cat.{vG, uG})
+variable {D : Type uD} [Category.{vD} D] (F' : Dᵒᵖ' ⥤ Cat.{vF, uF})
 
 /--
-Composing a morphism with the base of an eqToHom between same-base Grothendieck
-objects gives the original morphism.
+The fibrewise component: for each `c : C`, the data determining a functor
+`G.obj c ⥤ GrothendieckContra' F'`.
 -/
-lemma comp_base_eqToHom_same_base {d d' : D} {x y : F.obj d}
-    (f : d' ⟶ d) (h : (⟨d, x⟩ : Grothendieck F) = ⟨d, y⟩) :
-    f ≫ (eqToHom h).base = f := by
-  simp only [Grothendieck.base_eqToHom, eqToHom_refl, Category.comp_id]
+abbrev FunctorCovToContraFib := ∀ c : C, GrothendieckContra'.FunctorToData F' (E := G.obj c)
+
+/-- The family of fibre functors determined by a `FunctorCovToContraFib`. -/
+abbrev FunctorCovToContraFibFunc (fibTo : FunctorCovToContraFib G F') :
+    Grothendieck.FunctorFromFib G (E := GrothendieckContra' F') :=
+  fun c => GrothendieckContra'.functorTo (fibTo c)
+
+/--
+The transition component: for each `f : c ⟶ c'`, the data determining a natural
+transformation from the `c`-fibre functor to the `c'`-fibre functor precomposed
+with `G.map f`.
+-/
+abbrev FunctorCovToContraHom (fibTo : FunctorCovToContraFib G F') :=
+  ∀ {c c' : C} (f : c ⟶ c'),
+    GrothendieckContra'.NatTransToData F' (fibTo c) ((fibTo c').precomp (G.map f).toFunctor)
+
+/-- The family of natural transformations determined by a `FunctorCovToContraHom`. -/
+abbrev FunctorCovToContraHomNat (fibTo : FunctorCovToContraFib G F')
+    (homNat : FunctorCovToContraHom G F' fibTo) :
+    Grothendieck.FunctorFromHom G (FunctorCovToContraFibFunc G F' fibTo) :=
+  fun f => GrothendieckContra'.natTransTo _ _ (homNat f)
+
+/-- The data determining a functor `Grothendieck G ⥤ GrothendieckContra' F'`. -/
+structure FunctorCovToContraData where
+  /-- Fibrewise data determining a functor `G.obj c ⥤ GrothendieckContra' F'`. -/
+  fibTo : FunctorCovToContraFib G F'
+  /-- Transition data along morphisms of the base category `C`. -/
+  homNat : FunctorCovToContraHom G F' fibTo
+  /-- Identity coherence. -/
+  homNat_id : Grothendieck.FunctorFromHomId G (FunctorCovToContraFibFunc G F' fibTo)
+    (FunctorCovToContraHomNat G F' fibTo homNat)
+  /-- Composition coherence. -/
+  homNat_comp : Grothendieck.FunctorFromHomComp G (FunctorCovToContraFibFunc G F' fibTo)
+    (FunctorCovToContraHomNat G F' fibTo homNat)
+
+variable {G F'}
+
+/-- The `FunctorFromData` underlying a `FunctorCovToContraData`. -/
+def FunctorCovToContraData.toFromData (data : FunctorCovToContraData G F') :
+    Grothendieck.FunctorFromData G (E := GrothendieckContra' F') where
+  fib := FunctorCovToContraFibFunc G F' data.fibTo
+  hom := FunctorCovToContraHomNat G F' data.fibTo data.homNat
+  hom_id := data.homNat_id
+  hom_comp := data.homNat_comp
+
+/-- The `FunctorCovToContraData` underlying a `FunctorFromData`. -/
+def FunctorCovToContraData.ofFromData
+    (data : Grothendieck.FunctorFromData G (E := GrothendieckContra' F')) :
+    FunctorCovToContraData G F' where
+  fibTo c := GrothendieckContra'.ofFunctor (data.fib c)
+  homNat f := GrothendieckContra'.ofNatTrans _ _ (data.hom f)
+  homNat_id := data.hom_id
+  homNat_comp := data.hom_comp
+
+/-- Recovering the underlying `FunctorFromData` data undoes its repackaging. -/
+theorem FunctorCovToContraData.toFromData_ofFromData
+    (data : Grothendieck.FunctorFromData G (E := GrothendieckContra' F')) :
+    (FunctorCovToContraData.ofFromData data).toFromData = data := rfl
+
+/-- Repackaging the underlying `FunctorFromData` data recovers the original. -/
+theorem FunctorCovToContraData.ofFromData_toFromData (data : FunctorCovToContraData G F') :
+    FunctorCovToContraData.ofFromData data.toFromData = data := rfl
+
+/-- The family of base functors underlying a `FunctorCovToContraData`. -/
+abbrev FunctorCovToContraData.baseFunc (data : FunctorCovToContraData G F') (c : C) :
+    G.obj c ⥤ D :=
+  (data.fibTo c).baseFunc
+
+/-- The natural transformation between base functors carried by the transition data. -/
+abbrev FunctorCovToContraData.baseNat (data : FunctorCovToContraData G F') {c c' : C}
+    (f : c ⟶ c') : data.baseFunc c ⟶ (G.map f).toFunctor ⋙ data.baseFunc c' :=
+  (data.homNat f).baseNat
+
+/-- The functor `Grothendieck G ⥤ GrothendieckContra' F'` determined by the data. -/
+def FunctorCovToContraData.toFunctor (data : FunctorCovToContraData G F') :
+    Grothendieck G ⥤ GrothendieckContra' F' :=
+  Grothendieck.functorFromData G data.toFromData
+
+/-- The data determined by a functor `Grothendieck G ⥤ GrothendieckContra' F'`. -/
+def FunctorCovToContraData.ofFunctor (H : Grothendieck G ⥤ GrothendieckContra' F') :
+    FunctorCovToContraData G F' :=
+  FunctorCovToContraData.ofFromData (Grothendieck.ofFunctorFrom H)
+
+variable (G F')
+
+/-- The fibrewise components of a transformation of `FunctorCovToContraData`. -/
+abbrev NatTransCovToContraFib (dataG dataH : FunctorCovToContraData G F') :=
+  ∀ c : C, GrothendieckContra'.NatTransToData F' (dataG.fibTo c) (dataH.fibTo c)
+
+/-- The family of natural transformations determined by a `NatTransCovToContraFib`. -/
+abbrev NatTransCovToContraFibNat (dataG dataH : FunctorCovToContraData G F')
+    (fibNat : NatTransCovToContraFib G F' dataG dataH) :
+    Grothendieck.NatTransFromFib G dataG.toFromData dataH.toFromData :=
+  fun c => GrothendieckContra'.natTransTo _ _ (fibNat c)
+
+/-- The data determining a natural transformation of functors
+`Grothendieck G ⥤ GrothendieckContra' F'`. -/
+@[ext]
+structure NatTransCovToContraData (dataG dataH : FunctorCovToContraData G F') where
+  /-- Fibrewise transformation data. -/
+  fibNat : NatTransCovToContraFib G F' dataG dataH
+  /-- Coherence with the transition data. -/
+  coherence : Grothendieck.NatTransFromCoherence G dataG.toFromData dataH.toFromData
+    (NatTransCovToContraFibNat G F' dataG dataH fibNat)
+
+variable {G F'}
+
+/-- The `NatTransFromData` underlying a `NatTransCovToContraData`. -/
+def NatTransCovToContraData.toFromData {dataG dataH : FunctorCovToContraData G F'}
+    (nat : NatTransCovToContraData G F' dataG dataH) :
+    dataG.toFromData ⟶ dataH.toFromData where
+  fibNat := NatTransCovToContraFibNat G F' dataG dataH nat.fibNat
+  coherence := nat.coherence
+
+/-- The `NatTransCovToContraData` underlying a `NatTransFromData`. -/
+def NatTransCovToContraData.ofFromData {dataG dataH : FunctorCovToContraData G F'}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    NatTransCovToContraData G F' dataG dataH where
+  fibNat c := GrothendieckContra'.ofNatTrans _ _ (nat.fibNat c)
+  coherence := nat.coherence
+
+/-- Recovering the underlying `NatTransFromData` undoes its repackaging. -/
+theorem NatTransCovToContraData.toFromData_ofFromData
+    {dataG dataH : FunctorCovToContraData G F'} (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    (NatTransCovToContraData.ofFromData nat).toFromData = nat := rfl
+
+/-- Repackaging the underlying `NatTransFromData` recovers the original. -/
+theorem NatTransCovToContraData.ofFromData_toFromData
+    {dataG dataH : FunctorCovToContraData G F'}
+    (nat : NatTransCovToContraData G F' dataG dataH) :
+    NatTransCovToContraData.ofFromData nat.toFromData = nat := rfl
+
+/-- The identity transformation of `FunctorCovToContraData`. -/
+def NatTransCovToContraData.id (data : FunctorCovToContraData G F') :
+    NatTransCovToContraData G F' data data :=
+  NatTransCovToContraData.ofFromData (𝟙 data.toFromData)
+
+/-- Composition of transformations of `FunctorCovToContraData`. -/
+def NatTransCovToContraData.comp {dataG dataH dataK : FunctorCovToContraData G F'}
+    (nat₁ : NatTransCovToContraData G F' dataG dataH)
+    (nat₂ : NatTransCovToContraData G F' dataH dataK) :
+    NatTransCovToContraData G F' dataG dataK :=
+  NatTransCovToContraData.ofFromData (nat₁.toFromData ≫ nat₂.toFromData)
+
+variable (G F')
+
+/-- The category of data determining functors
+`Grothendieck G ⥤ GrothendieckContra' F'`. -/
+instance functorCovToContraDataCategory : Category (FunctorCovToContraData G F') where
+  Hom := NatTransCovToContraData G F'
+  id := NatTransCovToContraData.id
+  comp := NatTransCovToContraData.comp
+  id_comp nat := by
+    unfold NatTransCovToContraData.id NatTransCovToContraData.comp
+    conv_rhs => rw [← NatTransCovToContraData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.id_comp _
+  comp_id nat := by
+    unfold NatTransCovToContraData.id NatTransCovToContraData.comp
+    conv_rhs => rw [← NatTransCovToContraData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.comp_id _
+  assoc nat₁ nat₂ nat₃ := by
+    unfold NatTransCovToContraData.comp
+    congr 1
+    exact Category.assoc _ _ _
+
+/-- The forward half of the isomorphism with `FunctorFromData`. -/
+def functorCovToContraDataToFromData :
+    FunctorCovToContraData G F' ⥤ Grothendieck.FunctorFromData G (E := GrothendieckContra' F')
+    where
+  obj := FunctorCovToContraData.toFromData
+  map := NatTransCovToContraData.toFromData
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- The backward half of the isomorphism with `FunctorFromData`. -/
+def functorFromDataToCovToContraData :
+    Grothendieck.FunctorFromData G (E := GrothendieckContra' F') ⥤ FunctorCovToContraData G F'
+    where
+  obj := FunctorCovToContraData.ofFromData
+  map {_ _} nat := NatTransCovToContraData.ofFromData nat
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- `FunctorCovToContraData` is isomorphic to `FunctorFromData` into
+`GrothendieckContra' F'`. -/
+def functorCovToContraDataEquivFromData :
+    FunctorCovToContraData G F' ≌ Grothendieck.FunctorFromData G (E := GrothendieckContra' F') where
+  functor := functorCovToContraDataToFromData G F'
+  inverse := functorFromDataToCovToContraData G F'
+  unitIso := Iso.refl _
+  counitIso := Iso.refl _
+  functor_unitIso_comp _ := Category.id_comp _
+
+/-- The category of `FunctorCovToContraData` is equivalent to the functor category
+`Grothendieck G ⥤ GrothendieckContra' F'`. -/
+def functorCovToContraDataEquivCat :
+    FunctorCovToContraData G F' ≌ (Grothendieck G ⥤ GrothendieckContra' F') :=
+  (functorCovToContraDataEquivFromData G F').trans (Grothendieck.functorFromDataEquivCat G)
+
+
+end FunctorCovToContra
+
+
+/-!
+## Functors from a contravariant Grothendieck construction (Cov)
+-/
+
+section FunctorContraToCov
+
+variable {C : Type uC} [Category.{vC} C] (G' : Cᵒᵖ' ⥤ Cat.{vG, uG})
+variable {D : Type uD} [Category.{vD} D] (F : D ⥤ Cat.{vF, uF})
+
+/--
+The fibrewise component: for each `c : C`, the data determining a functor
+`G'.obj c ⥤ Grothendieck F`.
+-/
+abbrev FunctorContraToCovFib := ∀ c : C, Grothendieck.FunctorToData F (D := G'.obj c)
+
+/-- The family of fibre functors determined by a `FunctorContraToCovFib`. -/
+abbrev FunctorContraToCovFibFunc (fibTo : FunctorContraToCovFib G' F) :
+    GrothendieckContra'.FunctorFromDataFib (F' := G') (T := Grothendieck F) :=
+  fun c => Grothendieck.functorTo F (fibTo c)
+
+/--
+The transition component: for each `f : c ⟶ d`, the data determining a natural
+transformation from the `c`-fibre functor precomposed with `G'.map f` to the
+`d`-fibre functor.
+-/
+abbrev FunctorContraToCovHom (fibTo : FunctorContraToCovFib G' F) :=
+  ∀ {c d : C} (f : c ⟶ d),
+    Grothendieck.NatTransToData F ((fibTo c).precomp (G'.map f).toFunctor) (fibTo d)
+
+/-- The family of natural transformations determined by a `FunctorContraToCovHom`. -/
+abbrev FunctorContraToCovHomNat (fibTo : FunctorContraToCovFib G' F)
+    (homNat : FunctorContraToCovHom G' F fibTo) :
+    GrothendieckContra'.FunctorFromDataHom (F' := G')
+      (FunctorContraToCovFibFunc G' F fibTo) :=
+  fun f => Grothendieck.natTransTo F _ _ (homNat f)
+
+/-- The data determining a functor `GrothendieckContra' G' ⥤ Grothendieck F`. -/
+structure FunctorContraToCovData where
+  /-- Fibrewise data determining a functor `G'.obj c ⥤ Grothendieck F`. -/
+  fibTo : FunctorContraToCovFib G' F
+  /-- Transition data along morphisms of the base category `C`. -/
+  homNat : FunctorContraToCovHom G' F fibTo
+  /-- Identity coherence. -/
+  homNat_id : GrothendieckContra'.FunctorFromDataHomId (F' := G')
+    (FunctorContraToCovFibFunc G' F fibTo)
+    (FunctorContraToCovHomNat G' F fibTo homNat)
+  /-- Composition coherence. -/
+  homNat_comp : GrothendieckContra'.FunctorFromDataHomComp (F' := G')
+    (FunctorContraToCovFibFunc G' F fibTo)
+    (FunctorContraToCovHomNat G' F fibTo homNat)
+
+variable {G' F}
+
+/-- The `FunctorFromData` underlying a `FunctorContraToCovData`. -/
+def FunctorContraToCovData.toFromData (data : FunctorContraToCovData G' F) :
+    GrothendieckContra'.FunctorFromData (F' := G') (T := Grothendieck F) where
+  fib' := FunctorContraToCovFibFunc G' F data.fibTo
+  hom' := FunctorContraToCovHomNat G' F data.fibTo data.homNat
+  hom_id' := data.homNat_id
+  hom_comp' := data.homNat_comp
+
+/-- The `FunctorContraToCovData` underlying a `FunctorFromData`. -/
+def FunctorContraToCovData.ofFromData
+    (data : GrothendieckContra'.FunctorFromData (F' := G') (T := Grothendieck F)) :
+    FunctorContraToCovData G' F where
+  fibTo c := Grothendieck.ofFunctor F (data.fib' c)
+  homNat f := Grothendieck.ofNatTrans F _ _ (data.hom' f)
+  homNat_id := data.hom_id'
+  homNat_comp := data.hom_comp'
+
+/-- Recovering the underlying `FunctorFromData` data undoes its repackaging. -/
+theorem FunctorContraToCovData.toFromData_ofFromData
+    (data : GrothendieckContra'.FunctorFromData (F' := G') (T := Grothendieck F)) :
+    (FunctorContraToCovData.ofFromData data).toFromData = data := rfl
+
+/-- Repackaging the underlying `FunctorFromData` data recovers the original. -/
+theorem FunctorContraToCovData.ofFromData_toFromData
+    (data : FunctorContraToCovData G' F) :
+    FunctorContraToCovData.ofFromData data.toFromData = data := rfl
+
+/-- The family of base functors underlying a `FunctorContraToCovData`. -/
+abbrev FunctorContraToCovData.baseFunc (data : FunctorContraToCovData G' F)
+    (c : C) : G'.obj c ⥤ D :=
+  (data.fibTo c).baseFunc
+
+/-- The natural transformation between base functors carried by the transition data. -/
+abbrev FunctorContraToCovData.baseNat (data : FunctorContraToCovData G' F)
+    {c d : C} (f : c ⟶ d) :
+    (G'.map f).toFunctor ⋙ data.baseFunc c ⟶ data.baseFunc d :=
+  (data.homNat f).baseNat
+
+/-- The functor `GrothendieckContra' G' ⥤ Grothendieck F` determined by the data. -/
+def FunctorContraToCovData.toFunctor (data : FunctorContraToCovData G' F) :
+    GrothendieckContra' G' ⥤ Grothendieck F :=
+  GrothendieckContra'.functorFromData data.toFromData
+
+/-- The data determined by a functor `GrothendieckContra' G' ⥤ Grothendieck F`. -/
+def FunctorContraToCovData.ofFunctor (H : GrothendieckContra' G' ⥤ Grothendieck F) :
+    FunctorContraToCovData G' F :=
+  FunctorContraToCovData.ofFromData (GrothendieckContra'.ofFunctorFrom H)
+
+variable (G' F)
+
+/-- The fibrewise components of a transformation of `FunctorContraToCovData`. -/
+abbrev NatTransContraToCovFib (dataG dataH : FunctorContraToCovData G' F) :=
+  ∀ c : C, Grothendieck.NatTransToData F (dataG.fibTo c) (dataH.fibTo c)
+
+/-- The family of natural transformations determined by a `NatTransContraToCovFib`. -/
+abbrev NatTransContraToCovFibNat (dataG dataH : FunctorContraToCovData G' F)
+    (fibNat : NatTransContraToCovFib G' F dataG dataH) :
+    GrothendieckContra'.NatTransFromDataFib (F' := G') dataG.toFromData dataH.toFromData :=
+  fun c => Grothendieck.natTransTo F _ _ (fibNat c)
+
+/-- The data determining a natural transformation of functors
+`GrothendieckContra' G' ⥤ Grothendieck F`. -/
+@[ext]
+structure NatTransContraToCovData (dataG dataH : FunctorContraToCovData G' F) where
+  /-- Fibrewise transformation data. -/
+  fibNat : NatTransContraToCovFib G' F dataG dataH
+  /-- Coherence with the transition data. -/
+  coherence : GrothendieckContra'.NatTransFromDataCoherence (F' := G')
+    dataG.toFromData dataH.toFromData
+    (NatTransContraToCovFibNat G' F dataG dataH fibNat)
+
+variable {G' F}
+
+/-- The `NatTransFromData` underlying a `NatTransContraToCovData`. -/
+def NatTransContraToCovData.toFromData {dataG dataH : FunctorContraToCovData G' F}
+    (nat : NatTransContraToCovData G' F dataG dataH) :
+    dataG.toFromData ⟶ dataH.toFromData where
+  fibNat := NatTransContraToCovFibNat G' F dataG dataH nat.fibNat
+  coherence := nat.coherence
+
+/-- The `NatTransContraToCovData` underlying a `NatTransFromData`. -/
+def NatTransContraToCovData.ofFromData
+    {dataG dataH : FunctorContraToCovData G' F}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    NatTransContraToCovData G' F dataG dataH where
+  fibNat c := Grothendieck.ofNatTrans F _ _ (nat.fibNat c)
+  coherence := nat.coherence
+
+/-- Recovering the underlying `NatTransFromData` undoes its repackaging. -/
+theorem NatTransContraToCovData.toFromData_ofFromData
+    {dataG dataH : FunctorContraToCovData G' F}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    (NatTransContraToCovData.ofFromData nat).toFromData = nat := rfl
+
+/-- Repackaging the underlying `NatTransFromData` recovers the original. -/
+theorem NatTransContraToCovData.ofFromData_toFromData
+    {dataG dataH : FunctorContraToCovData G' F}
+    (nat : NatTransContraToCovData G' F dataG dataH) :
+    NatTransContraToCovData.ofFromData nat.toFromData = nat := rfl
+
+/-- The identity transformation of `FunctorContraToCovData`. -/
+def NatTransContraToCovData.id (data : FunctorContraToCovData G' F) :
+    NatTransContraToCovData G' F data data :=
+  NatTransContraToCovData.ofFromData (𝟙 data.toFromData)
+
+/-- Composition of transformations of `FunctorContraToCovData`. -/
+def NatTransContraToCovData.comp
+    {dataG dataH dataK : FunctorContraToCovData G' F}
+    (nat₁ : NatTransContraToCovData G' F dataG dataH)
+    (nat₂ : NatTransContraToCovData G' F dataH dataK) :
+    NatTransContraToCovData G' F dataG dataK :=
+  NatTransContraToCovData.ofFromData (nat₁.toFromData ≫ nat₂.toFromData)
+
+variable (G' F)
+
+/-- The category of data determining functors
+`GrothendieckContra' G' ⥤ Grothendieck F`. -/
+instance functorContraToCovDataCategory :
+    Category (FunctorContraToCovData G' F) where
+  Hom := NatTransContraToCovData G' F
+  id := NatTransContraToCovData.id
+  comp := NatTransContraToCovData.comp
+  id_comp nat := by
+    unfold NatTransContraToCovData.id NatTransContraToCovData.comp
+    conv_rhs => rw [← NatTransContraToCovData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.id_comp _
+  comp_id nat := by
+    unfold NatTransContraToCovData.id NatTransContraToCovData.comp
+    conv_rhs => rw [← NatTransContraToCovData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.comp_id _
+  assoc nat₁ nat₂ nat₃ := by
+    unfold NatTransContraToCovData.comp
+    congr 1
+    exact Category.assoc _ _ _
+
+/-- The forward half of the isomorphism with `FunctorFromData`. -/
+def functorContraToCovDataToFromData :
+    FunctorContraToCovData G' F ⥤
+      GrothendieckContra'.FunctorFromData (F' := G') (T := Grothendieck F) where
+  obj := FunctorContraToCovData.toFromData
+  map := NatTransContraToCovData.toFromData
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- The backward half of the isomorphism with `FunctorFromData`. -/
+def functorFromDataToContraToCovData :
+    GrothendieckContra'.FunctorFromData (F' := G') (T := Grothendieck F) ⥤
+      FunctorContraToCovData G' F where
+  obj := FunctorContraToCovData.ofFromData
+  map {_ _} nat := NatTransContraToCovData.ofFromData nat
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- `FunctorContraToCovData` is isomorphic to `FunctorFromData` into `Grothendieck F`. -/
+def functorContraToCovDataEquivFromData :
+    FunctorContraToCovData G' F ≌
+      GrothendieckContra'.FunctorFromData (F' := G') (T := Grothendieck F) where
+  functor := functorContraToCovDataToFromData G' F
+  inverse := functorFromDataToContraToCovData G' F
+  unitIso := Iso.refl _
+  counitIso := Iso.refl _
+  functor_unitIso_comp _ := Category.id_comp _
+
+/-- The category of `FunctorContraToCovData` is equivalent to the functor category
+`GrothendieckContra' G' ⥤ Grothendieck F`. -/
+def functorContraToCovDataEquivCat :
+    FunctorContraToCovData G' F ≌ (GrothendieckContra' G' ⥤ Grothendieck F) :=
+  (functorContraToCovDataEquivFromData G' F).trans
+    (GrothendieckContra'.functorFromDataEquivCat (F' := G') (T := Grothendieck F))
+
+end FunctorContraToCov
+
+
+/-!
+## Functors from a contravariant Grothendieck construction (Contra)
+-/
+
+section FunctorContraToContra
+
+variable {C : Type uC} [Category.{vC} C] (G' : Cᵒᵖ' ⥤ Cat.{vG, uG})
+variable {D : Type uD} [Category.{vD} D] (F' : Dᵒᵖ' ⥤ Cat.{vF, uF})
+
+/--
+The fibrewise component: for each `c : C`, the data determining a functor
+`G'.obj c ⥤ GrothendieckContra' F'`.
+-/
+abbrev FunctorContraToContraFib := ∀ c : C, GrothendieckContra'.FunctorToData F' (E := G'.obj c)
+
+/-- The family of fibre functors determined by a `FunctorContraToContraFib`. -/
+abbrev FunctorContraToContraFibFunc (fibTo : FunctorContraToContraFib G' F') :
+    GrothendieckContra'.FunctorFromDataFib (F' := G') (T := GrothendieckContra' F') :=
+  fun c => GrothendieckContra'.functorTo (fibTo c)
+
+/--
+The transition component: for each `f : c ⟶ d`, the data determining a natural
+transformation from the `c`-fibre functor precomposed with `G'.map f` to the
+`d`-fibre functor.
+-/
+abbrev FunctorContraToContraHom (fibTo : FunctorContraToContraFib G' F') :=
+  ∀ {c d : C} (f : c ⟶ d),
+    GrothendieckContra'.NatTransToData F' ((fibTo c).precomp (G'.map f).toFunctor) (fibTo d)
+
+/-- The family of natural transformations determined by a `FunctorContraToContraHom`. -/
+abbrev FunctorContraToContraHomNat (fibTo : FunctorContraToContraFib G' F')
+    (homNat : FunctorContraToContraHom G' F' fibTo) :
+    GrothendieckContra'.FunctorFromDataHom (F' := G')
+      (FunctorContraToContraFibFunc G' F' fibTo) :=
+  fun f => GrothendieckContra'.natTransTo _ _ (homNat f)
+
+/-- The data determining a functor `GrothendieckContra' G' ⥤ GrothendieckContra' F'`. -/
+structure FunctorContraToContraData where
+  /-- Fibrewise data determining a functor `G'.obj c ⥤ GrothendieckContra' F'`. -/
+  fibTo : FunctorContraToContraFib G' F'
+  /-- Transition data along morphisms of the base category `C`. -/
+  homNat : FunctorContraToContraHom G' F' fibTo
+  /-- Identity coherence. -/
+  homNat_id : GrothendieckContra'.FunctorFromDataHomId (F' := G')
+    (FunctorContraToContraFibFunc G' F' fibTo)
+    (FunctorContraToContraHomNat G' F' fibTo homNat)
+  /-- Composition coherence. -/
+  homNat_comp : GrothendieckContra'.FunctorFromDataHomComp (F' := G')
+    (FunctorContraToContraFibFunc G' F' fibTo)
+    (FunctorContraToContraHomNat G' F' fibTo homNat)
+
+variable {G' F'}
+
+/-- The `FunctorFromData` underlying a `FunctorContraToContraData`. -/
+def FunctorContraToContraData.toFromData (data : FunctorContraToContraData G' F') :
+    GrothendieckContra'.FunctorFromData (F' := G') (T := GrothendieckContra' F') where
+  fib' := FunctorContraToContraFibFunc G' F' data.fibTo
+  hom' := FunctorContraToContraHomNat G' F' data.fibTo data.homNat
+  hom_id' := data.homNat_id
+  hom_comp' := data.homNat_comp
+
+/-- The `FunctorContraToContraData` underlying a `FunctorFromData`. -/
+def FunctorContraToContraData.ofFromData
+    (data : GrothendieckContra'.FunctorFromData (F' := G') (T := GrothendieckContra' F')) :
+    FunctorContraToContraData G' F' where
+  fibTo c := GrothendieckContra'.ofFunctor (data.fib' c)
+  homNat f := GrothendieckContra'.ofNatTrans _ _ (data.hom' f)
+  homNat_id := data.hom_id'
+  homNat_comp := data.hom_comp'
+
+/-- Recovering the underlying `FunctorFromData` data undoes its repackaging. -/
+theorem FunctorContraToContraData.toFromData_ofFromData
+    (data : GrothendieckContra'.FunctorFromData (F' := G') (T := GrothendieckContra' F')) :
+    (FunctorContraToContraData.ofFromData data).toFromData = data := rfl
+
+/-- Repackaging the underlying `FunctorFromData` data recovers the original. -/
+theorem FunctorContraToContraData.ofFromData_toFromData
+    (data : FunctorContraToContraData G' F') :
+    FunctorContraToContraData.ofFromData data.toFromData = data := rfl
+
+/-- The family of base functors underlying a `FunctorContraToContraData`. -/
+abbrev FunctorContraToContraData.baseFunc (data : FunctorContraToContraData G' F')
+    (c : C) : G'.obj c ⥤ D :=
+  (data.fibTo c).baseFunc
+
+/-- The natural transformation between base functors carried by the transition data. -/
+abbrev FunctorContraToContraData.baseNat (data : FunctorContraToContraData G' F')
+    {c d : C} (f : c ⟶ d) :
+    (G'.map f).toFunctor ⋙ data.baseFunc c ⟶ data.baseFunc d :=
+  (data.homNat f).baseNat
+
+/-- The functor `GrothendieckContra' G' ⥤ GrothendieckContra' F'` determined by the data. -/
+def FunctorContraToContraData.toFunctor (data : FunctorContraToContraData G' F') :
+    GrothendieckContra' G' ⥤ GrothendieckContra' F' :=
+  GrothendieckContra'.functorFromData data.toFromData
+
+/-- The data determined by a functor `GrothendieckContra' G' ⥤ GrothendieckContra' F'`. -/
+def FunctorContraToContraData.ofFunctor (H : GrothendieckContra' G' ⥤ GrothendieckContra' F') :
+    FunctorContraToContraData G' F' :=
+  FunctorContraToContraData.ofFromData (GrothendieckContra'.ofFunctorFrom H)
+
+variable (G' F')
+
+/-- The fibrewise components of a transformation of `FunctorContraToContraData`. -/
+abbrev NatTransContraToContraFib (dataG dataH : FunctorContraToContraData G' F') :=
+  ∀ c : C, GrothendieckContra'.NatTransToData F' (dataG.fibTo c) (dataH.fibTo c)
+
+/-- The family of natural transformations determined by a `NatTransContraToContraFib`. -/
+abbrev NatTransContraToContraFibNat (dataG dataH : FunctorContraToContraData G' F')
+    (fibNat : NatTransContraToContraFib G' F' dataG dataH) :
+    GrothendieckContra'.NatTransFromDataFib (F' := G') dataG.toFromData dataH.toFromData :=
+  fun c => GrothendieckContra'.natTransTo _ _ (fibNat c)
+
+/-- The data determining a natural transformation of functors
+`GrothendieckContra' G' ⥤ GrothendieckContra' F'`. -/
+@[ext]
+structure NatTransContraToContraData (dataG dataH : FunctorContraToContraData G' F') where
+  /-- Fibrewise transformation data. -/
+  fibNat : NatTransContraToContraFib G' F' dataG dataH
+  /-- Coherence with the transition data. -/
+  coherence : GrothendieckContra'.NatTransFromDataCoherence (F' := G')
+    dataG.toFromData dataH.toFromData
+    (NatTransContraToContraFibNat G' F' dataG dataH fibNat)
+
+variable {G' F'}
+
+/-- The `NatTransFromData` underlying a `NatTransContraToContraData`. -/
+def NatTransContraToContraData.toFromData {dataG dataH : FunctorContraToContraData G' F'}
+    (nat : NatTransContraToContraData G' F' dataG dataH) :
+    dataG.toFromData ⟶ dataH.toFromData where
+  fibNat := NatTransContraToContraFibNat G' F' dataG dataH nat.fibNat
+  coherence := nat.coherence
+
+/-- The `NatTransContraToContraData` underlying a `NatTransFromData`. -/
+def NatTransContraToContraData.ofFromData
+    {dataG dataH : FunctorContraToContraData G' F'}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    NatTransContraToContraData G' F' dataG dataH where
+  fibNat c := GrothendieckContra'.ofNatTrans _ _ (nat.fibNat c)
+  coherence := nat.coherence
+
+/-- Recovering the underlying `NatTransFromData` undoes its repackaging. -/
+theorem NatTransContraToContraData.toFromData_ofFromData
+    {dataG dataH : FunctorContraToContraData G' F'}
+    (nat : dataG.toFromData ⟶ dataH.toFromData) :
+    (NatTransContraToContraData.ofFromData nat).toFromData = nat := rfl
+
+/-- Repackaging the underlying `NatTransFromData` recovers the original. -/
+theorem NatTransContraToContraData.ofFromData_toFromData
+    {dataG dataH : FunctorContraToContraData G' F'}
+    (nat : NatTransContraToContraData G' F' dataG dataH) :
+    NatTransContraToContraData.ofFromData nat.toFromData = nat := rfl
+
+/-- The identity transformation of `FunctorContraToContraData`. -/
+def NatTransContraToContraData.id (data : FunctorContraToContraData G' F') :
+    NatTransContraToContraData G' F' data data :=
+  NatTransContraToContraData.ofFromData (𝟙 data.toFromData)
+
+/-- Composition of transformations of `FunctorContraToContraData`. -/
+def NatTransContraToContraData.comp
+    {dataG dataH dataK : FunctorContraToContraData G' F'}
+    (nat₁ : NatTransContraToContraData G' F' dataG dataH)
+    (nat₂ : NatTransContraToContraData G' F' dataH dataK) :
+    NatTransContraToContraData G' F' dataG dataK :=
+  NatTransContraToContraData.ofFromData (nat₁.toFromData ≫ nat₂.toFromData)
+
+variable (G' F')
+
+/-- The category of data determining functors
+`GrothendieckContra' G' ⥤ GrothendieckContra' F'`. -/
+instance functorContraToContraDataCategory :
+    Category (FunctorContraToContraData G' F') where
+  Hom := NatTransContraToContraData G' F'
+  id := NatTransContraToContraData.id
+  comp := NatTransContraToContraData.comp
+  id_comp nat := by
+    unfold NatTransContraToContraData.id NatTransContraToContraData.comp
+    conv_rhs => rw [← NatTransContraToContraData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.id_comp _
+  comp_id nat := by
+    unfold NatTransContraToContraData.id NatTransContraToContraData.comp
+    conv_rhs => rw [← NatTransContraToContraData.ofFromData_toFromData nat]
+    congr 1
+    exact Category.comp_id _
+  assoc nat₁ nat₂ nat₃ := by
+    unfold NatTransContraToContraData.comp
+    congr 1
+    exact Category.assoc _ _ _
+
+/-- The forward half of the isomorphism with `FunctorFromData`. -/
+def functorContraToContraDataToFromData :
+    FunctorContraToContraData G' F' ⥤
+      GrothendieckContra'.FunctorFromData (F' := G') (T := GrothendieckContra' F') where
+  obj := FunctorContraToContraData.toFromData
+  map := NatTransContraToContraData.toFromData
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- The backward half of the isomorphism with `FunctorFromData`. -/
+def functorFromDataToContraToContraData :
+    GrothendieckContra'.FunctorFromData (F' := G') (T := GrothendieckContra' F') ⥤
+      FunctorContraToContraData G' F' where
+  obj := FunctorContraToContraData.ofFromData
+  map {_ _} nat := NatTransContraToContraData.ofFromData nat
+  map_id _ := rfl
+  map_comp _ _ := rfl
+
+/-- `FunctorContraToContraData` is isomorphic to `FunctorFromData` into `GrothendieckContra' F'`. -/
+def functorContraToContraDataEquivFromData :
+    FunctorContraToContraData G' F' ≌
+      GrothendieckContra'.FunctorFromData (F' := G') (T := GrothendieckContra' F') where
+  functor := functorContraToContraDataToFromData G' F'
+  inverse := functorFromDataToContraToContraData G' F'
+  unitIso := Iso.refl _
+  counitIso := Iso.refl _
+  functor_unitIso_comp _ := Category.id_comp _
+
+/-- The category of `FunctorContraToContraData` is equivalent to the functor category
+`GrothendieckContra' G' ⥤ GrothendieckContra' F'`. -/
+def functorContraToContraDataEquivCat :
+    FunctorContraToContraData G' F' ≌ (GrothendieckContra' G' ⥤ GrothendieckContra' F') :=
+  (functorContraToContraDataEquivFromData G' F').trans
+    (GrothendieckContra'.functorFromDataEquivCat (F' := G') (T := GrothendieckContra' F'))
+
+end FunctorContraToContra
 
 end FunctorBetween
 
-/-!
-## Natural Transformations Between Functors of Grothendieck Constructions (Covariant)
-
-For natural transformations `α : H ⟶ K` where `H K : Grothendieck G ⥤ Grothendieck F`,
-we require the base functors to be equal (otherwise the codomain objects live in
-different fibers). The natural transformation consists of fiber natural transformations
-satisfying a coherence condition with the cross-fiber morphisms.
--/
-
-section NatTransBetween
-
-universe vC vD uC uD
-
-variable {C : Type uC} [Category.{vC} C] (G : C ⥤ Cat.{vC, uC})
-variable {D : Type uD} [Category.{vD} D] (F : D ⥤ Cat.{vD, uD})
-variable (baseFib : FunctorBetweenBaseFib (C := C) (D := D))
-variable (dataG dataH : FunctorBetweenData G F)
-
-/--
-For a natural transformation between functors with the same base, we need the
-base functors to be equal.
--/
-abbrev NatTransBetweenBaseFibEq :=
-  dataG.baseFib = baseFib ∧ dataH.baseFib = baseFib
-
-/--
-The fiber natural transformation component: for each `c : C`, a natural
-transformation `dataG.fibFib c ⟶ dataH.fibFib c`.
-Since both fibFib functors go from `G.obj c` to `F.obj (baseFib.obj c)` when
-the base functors are equal, this is well-typed (up to transport).
--/
-abbrev NatTransBetweenFibNatApp
-    (fibFibG : FunctorBetweenFibFib G F baseFib)
-    (fibFibH : FunctorBetweenFibFib G F baseFib) :=
-  ∀ (c : C) (x : G.obj c), (fibFibG c).obj x ⟶ (fibFibH c).obj x
-
-/--
-The naturality condition for fiber natural transformations within a single fiber.
-For each `g : x ⟶ y` in `G.obj c`:
-```
-fibFibG c x --fibNatApp c x--> fibFibH c x
-    |                              |
-(fibFibG c).map g            (fibFibH c).map g
-    |                              |
-    v                              v
-fibFibG c y --fibNatApp c y--> fibFibH c y
-```
--/
-abbrev NatTransBetweenFibNatNat
-    (fibFibG fibFibH : FunctorBetweenFibFib G F baseFib)
-    (fibNatApp : NatTransBetweenFibNatApp G F baseFib fibFibG fibFibH) :=
-  ∀ (c : C) {x y : G.obj c} (g : x ⟶ y),
-    (fibFibG c).map g ≫ fibNatApp c y = fibNatApp c x ≫ (fibFibH c).map g
-
-/--
-The coherence condition relating fiber natural transformations to cross-fiber
-morphisms. For each `f : c ⟶ c'` and `x : G.obj c`:
-```
-(F.map (baseFib.map f)).obj (fibFibG c x) --fibHomCrossAppG f x-->
-                                               fibFibG c' ((G.map f).obj x)
-           |                                              |
-(F.map (baseFib.map f)).map (fibNatApp c x)         fibNatApp c' ((G.map f).obj x)
-           |                                              |
-           v                                              v
-(F.map (baseFib.map f)).obj (fibFibH c x) --fibHomCrossAppH f x-->
-                                               fibFibH c' ((G.map f).obj x)
-```
--/
-abbrev NatTransBetweenCoherence
-    (fibFibG fibFibH : FunctorBetweenFibFib G F baseFib)
-    (fibNatApp : NatTransBetweenFibNatApp G F baseFib fibFibG fibFibH)
-    (fibHomCrossAppG : FunctorBetweenFibHomCrossApp G F baseFib fibFibG)
-    (fibHomCrossAppH : FunctorBetweenFibHomCrossApp G F baseFib fibFibH) :=
-  ∀ {c c' : C} (f : c ⟶ c') (x : G.obj c),
-    (F.map (baseFib.map f)).toFunctor.map (fibNatApp c x) ≫ fibHomCrossAppH f x =
-    fibHomCrossAppG f x ≫ fibNatApp c' ((G.map f).toFunctor.obj x)
-
-/--
-Bundled data for a natural transformation between functors
-`Grothendieck G ⥤ Grothendieck F` that share the same base functor.
-
-This structure represents a natural transformation `α : H ⟶ K` where
-both `H` and `K` have the same base functor `baseFib : C ⥤ D`.
--/
-structure NatTransBetweenData
-    (fibFibG fibFibH : FunctorBetweenFibFib G F baseFib)
-    (fibHomCrossAppG : FunctorBetweenFibHomCrossApp G F baseFib fibFibG)
-    (fibHomCrossAppH : FunctorBetweenFibHomCrossApp G F baseFib fibFibH) where
-  /-- Component morphisms: for each `c` and `x`, a morphism between fibers -/
-  fibNatApp : NatTransBetweenFibNatApp G F baseFib fibFibG fibFibH
-  /-- Naturality within each fiber -/
-  fibNatNat : NatTransBetweenFibNatNat G F baseFib fibFibG fibFibH fibNatApp
-  /-- Coherence with cross-fiber morphisms -/
-  coherence : NatTransBetweenCoherence G F baseFib fibFibG fibFibH fibNatApp
-    fibHomCrossAppG fibHomCrossAppH
-
-end NatTransBetween
-
-/-!
-## Functors Between Grothendieck Constructions (Contravariant Case)
-
-This section defines bundled data for functors between two contravariant Grothendieck
-constructions `GrothendieckContra' G' ⥤ GrothendieckContra' F'` where
-`G' : Cᵒᵖ' ⥤ Cat` and `F' : Dᵒᵖ' ⥤ Cat`.
--/
-
-section FunctorBetweenContra
-
-universe vC vD uC uD
-
-variable {C : Type uC} [Category.{vC} C] (G' : Cᵒᵖ' ⥤ Cat.{vC, uC})
-variable {D : Type uD} [Category.{vD} D] (F' : Dᵒᵖ' ⥤ Cat.{vD, uD})
-
-/--
-The base-fiber functor for contravariant case: assigns to each `c : C` a base
-object in `D`.
--/
-abbrev FunctorBetweenContraBaseFib := C ⥤ D
-
-/--
-The fiber-fiber functor for contravariant case: for each `c : C`, a functor from
-`G'.obj c` to `F'.obj (baseFib.obj c)`.
--/
-abbrev FunctorBetweenContraFibFib
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D)) :=
-  ∀ c, G'.obj c ⥤ F'.obj (baseFib.obj c)
-
-/--
-The cross-fiber morphism component for contravariant case: for each `f : c ⟶ c'`
-and `x' : G'.obj c'`, a morphism relating the transported fibers.
-
-For `G' : Cᵒᵖ' ⥤ Cat`, we have `G'.map f : G'.obj c' ⥤ G'.obj c` (reversed).
-So for `f : c ⟶ c'` and `x' : G'.obj c'`:
-- `(G'.map f).obj x' : G'.obj c`
-- `(fibFib c).obj ((G'.map f).obj x') : F'.obj (baseFib.obj c)`
-- `(F'.map (baseFib.map f)).obj ((fibFib c').obj x') : F'.obj (baseFib.obj c)`
--/
-abbrev FunctorBetweenContraFibHomCrossApp
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :=
-  ∀ {c c' : C} (f : c ⟶ c') (x' : G'.obj c'),
-    (fibFib c).obj ((G'.map f).toFunctor.obj x') ⟶
-    (F'.map (baseFib.map f)).toFunctor.obj ((fibFib c').obj x')
-
-/--
-The naturality condition for cross-fiber morphisms in the contravariant case.
-For `f : c ⟶ c'` and `g : x' ⟶ y'` in `G'.obj c'`:
-- `(G'.map f).map g : (G'.map f).obj x' ⟶ (G'.map f).obj y'`
--/
-abbrev FunctorBetweenContraFibHomCrossNat
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib)
-    (fibHomCrossApp : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFib) :=
-  ∀ {c c' : C} (f : c ⟶ c') {x' y' : G'.obj c'} (g : x' ⟶ y'),
-    (fibFib c).map ((G'.map f).toFunctor.map g) ≫ fibHomCrossApp f y' =
-    fibHomCrossApp f x' ≫ (F'.map (baseFib.map f)).toFunctor.map ((fibFib c').map g)
-
-/--
-The equality proof for identity morphisms in the contravariant Grothendieck.
-For `𝟙 c` and `x : G'.obj c`, the cross-fiber morphism has type:
-`(fibFib c).obj ((G'.map (𝟙 c)).obj x) ⟶ (F'.map (baseFib.map (𝟙 c))).obj ((fibFib c).obj x)`
-Both sides should equal `(fibFib c).obj x` by functor identity laws.
--/
-abbrev FunctorBetweenContraBaseHomEqId
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :=
-  ∀ (c : C) (x : G'.obj c),
-    (fibFib c).obj ((G'.map (𝟙 c)).toFunctor.obj x) =
-    (F'.map (baseFib.map (𝟙 c))).toFunctor.obj ((fibFib c).obj x)
-
-/--
-Derive the identity equality from functor laws.
--/
-lemma functorBetweenContraBaseHomEqIdProof
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :
-    FunctorBetweenContraBaseHomEqId G' F' baseFib fibFib := by
-  intro c x
-  simp only [baseFib.map_id]
-  have hG : G'.map (𝟙 c) = 𝟙 (G'.obj c) := G'.map_id c
-  have hF : F'.map (𝟙 (baseFib.obj c)) = 𝟙 (F'.obj (baseFib.obj c)) :=
-    F'.map_id (baseFib.obj c)
-  simp only [hG, hF]
-  rfl
-
-/--
-The equality proof for composite morphisms in the contravariant Grothendieck.
-For `f : c ⟶ c'`, `g : c' ⟶ c''`, `x'' : G'.obj c''`:
-- The composition path ends at
-  `(F'.map (baseFib.map f)).obj ((F'.map (baseFib.map g)).obj ((fibFib c'').obj x''))`
-- The composite path uses `(F'.map (baseFib.map (f ≫ g))).obj ((fibFib c'').obj x'')`
-These are equal by `F'.map_comp` for contravariant functors.
--/
-abbrev FunctorBetweenContraBaseHomEqComp
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'') (x'' : G'.obj c''),
-    (F'.map (baseFib.map f)).toFunctor.obj
-      ((F'.map (baseFib.map g)).toFunctor.obj ((fibFib c'').obj x'')) =
-    (F'.map (baseFib.map (f ≫ g))).toFunctor.obj ((fibFib c'').obj x'')
-
-/--
-Derive the composition equality from functor laws.
-For contravariant functors, F'.map_comp g f = F'.map f ⋙ F'.map g.
--/
-lemma functorBetweenContraBaseHomEqCompProof
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :
-    FunctorBetweenContraBaseHomEqComp G' F' baseFib fibFib := by
-  intro c c' c'' f g x''
-  simp only [baseFib.map_comp]
-  have h := congrArg Cat.Hom.toFunctor (F'.map_comp (baseFib.map g) (baseFib.map f))
-  exact (congrFun (congrArg Functor.obj h) ((fibFib c'').obj x'')).symm
-
-/--
-The equality proof relating `(G'.map f).obj ((G'.map g).obj x'')` to the
-composite map applied to `x''` for the contravariant case.
-For contravariant functors with `G' : Cᵒᵖ' ⥤ Cat`, and C-morphisms `f : c ⟶ c'`
-and `g : c' ⟶ c''`:
-- `G'.map f : G'.obj c' ⥤ G'.obj c`
-- `G'.map g : G'.obj c'' ⥤ G'.obj c'`
-- `G'.map_comp` gives `G'.map (g ≫_{Cᵒᵖ'} f) = G'.map g ⋙ G'.map f`
-- Since `Cᵒᵖ'` reverses composition, `g ≫_{Cᵒᵖ'} f = f ≫_C g` when viewed
-  as C-morphisms
--/
-abbrev FunctorBetweenContraGMapCompEq
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'') (x'' : G'.obj c''),
-    (fibFib c).obj ((G'.map f).toFunctor.obj ((G'.map g).toFunctor.obj x'')) =
-    (fibFib c).obj ((G'.map (@CategoryStruct.comp C _ c c' c'' f g)).toFunctor.obj x'')
-
-/--
-Derive the G'.map_comp equality from functor laws.
-For contravariant functors, G'.map_comp g f = G'.map f ⋙ G'.map g.
--/
-lemma functorBetweenContraGMapCompEqProof
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib) :
-    FunctorBetweenContraGMapCompEq G' F' baseFib fibFib := by
-  intro c c' c'' f g x''
-  have h := congrArg Cat.Hom.toFunctor (G'.map_comp g f)
-  exact congrArg (fibFib c).obj (congrFun (congrArg Functor.obj h) x'').symm
-
-/--
-The identity coherence: `fibHomCrossApp (𝟙 c) x` equals the derived eqToHom.
-For `𝟙 c` and `x : G'.obj c`, the cross-fiber morphism `fibHomCrossApp (𝟙 c) x`
-should be the identity (via `eqToHom`).
--/
-abbrev FunctorBetweenContraBaseHomId
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib)
-    (fibHomCrossApp : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFib) :=
-  ∀ (c : C) (x : G'.obj c),
-    fibHomCrossApp (𝟙 c) x =
-      eqToHom (functorBetweenContraBaseHomEqIdProof G' F' baseFib fibFib c x)
-
-/--
-The composition coherence for the contravariant case.
-For `f : c ⟶ c'`, `g : c' ⟶ c''`, `x'' : G'.obj c''`:
-- The stepwise path goes through:
-  1. `fibHomCrossApp f ((G'.map g).obj x'')` to get to `(F'.map (baseFib.map f)).obj (...)`
-  2. `(F'.map (baseFib.map f)).map (fibHomCrossApp g x'')` to apply the second cross-fiber
-  3. `eqToHom` to relate endpoints
--/
-abbrev FunctorBetweenContraBaseHomComp
-    (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraFibFib G' F' baseFib)
-    (fibHomCrossApp : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'') (x'' : G'.obj c''),
-    eqToHom (functorBetweenContraGMapCompEqProof G' F' baseFib fibFib f g x'') ≫
-      fibHomCrossApp (@CategoryStruct.comp C _ c c' c'' f g) x'' =
-    fibHomCrossApp f ((G'.map g).toFunctor.obj x'') ≫
-    (F'.map (baseFib.map f)).toFunctor.map (fibHomCrossApp g x'') ≫
-    eqToHom (functorBetweenContraBaseHomEqCompProof G' F' baseFib fibFib f g x'')
-
-/--
-Bundled data for a functor between contravariant Grothendieck constructions
-`GrothendieckContra' G' ⥤ GrothendieckContra' F'`.
--/
-structure FunctorBetweenContraData where
-  /-- The base functor `C ⥤ D` -/
-  baseFib : FunctorBetweenContraBaseFib (C := C) (D := D)
-  /-- Fiber functors: for each `c : C`, a functor `G'.obj c ⥤ F'.obj (baseFib.obj c)` -/
-  fibFib : FunctorBetweenContraFibFib G' F' baseFib
-  /-- Cross-fiber morphisms -/
-  fibHomCrossApp : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFib
-  /-- Naturality for cross-fiber morphisms -/
-  fibHomCrossNat : FunctorBetweenContraFibHomCrossNat G' F' baseFib fibFib fibHomCrossApp
-  /-- Identity coherence for cross-fiber morphisms -/
-  baseHomId : FunctorBetweenContraBaseHomId G' F' baseFib fibFib fibHomCrossApp
-  /-- Composition coherence for cross-fiber morphisms -/
-  baseHomComp : FunctorBetweenContraBaseHomComp G' F' baseFib fibFib fibHomCrossApp
-
-end FunctorBetweenContra
 
 /-!
 ## Functors Between Covariant and Contravariant Grothendieck Constructions
 
-This section defines bundled data for functors between a covariant source
-Grothendieck and a contravariant target Grothendieck,
+This section defines bundled data sufficient to construct a functor between a
+covariant source Grothendieck and a contravariant target Grothendieck,
 `Grothendieck G ⥤ (grothendieckContraFunctor D).obj F`, where `G : C ⥤ Cat` and
-`F : Dᵒᵖ ⥤ Cat`.
-
-A functor between these is characterized by:
+`F : Dᵒᵖ ⥤ Cat`.  The data consists of:
 - A base functor `baseFib : C ⥤ D`.
 - For each `c : C`, a functor `fibFib c : G.obj c ⥤ F.obj (op (baseFib.obj c))`.
 - Cross-fibre morphisms whose direction is the contravariant-target one:
   `(fibFib c).obj x ⟶
       (F.map (baseFib.map f).op).obj ((fibFib c').obj ((G.map f).obj x))`.
+
+This covers exactly those functors whose fibrewise base functors are all
+constant, so it is a construction and not a characterization; the
+characterization of all such functors is `FunctorCovToContraData`, whose
+fibrewise base functors form a family `G.obj c ⥤ D` indexed by `c : C`.  This
+section works in the `ᵒᵖ` presentation of the contravariant construction,
+whereas `FunctorCovToContraData` works in the `ᵒᵖ'` presentation.
 -/
 
 section FunctorBetweenCovContra
@@ -5392,322 +5638,6 @@ structure FunctorBetweenCovContraData where
 
 end FunctorBetweenCovContra
 
-/-!
-## Functors Between Two Contravariant Grothendieck Constructions
-
-This section defines bundled data for functors between a contravariant source
-Grothendieck and a contravariant target Grothendieck,
-`(grothendieckContraFunctor C).obj G ⥤ (grothendieckContraFunctor D).obj F`,
-where `G : Cᵒᵖ ⥤ Cat` and `F : Dᵒᵖ ⥤ Cat`.
-
-A functor between these is characterized by:
-- A base functor `baseFib : C ⥤ D`.
-- For each `c : C`, a functor
-  `fibFib c : G.obj (op c) ⥤ F.obj (op (baseFib.obj c))`.
-- Cross-fibre morphisms whose direction reflects both contravariances:
-  `(fibFib c).obj ((G.map f.op).obj x') ⟶
-      (F.map (baseFib.map f).op).obj ((fibFib c').obj x')`.
--/
-
-section FunctorBetweenContraContra
-
-universe vC vD uC uD vT uT
-
-variable {C : Type uC} [Category.{vC} C] (G : Cᵒᵖ ⥤ Cat.{vT, uT})
-variable {D : Type uD} [Category.{vD} D] (F : Dᵒᵖ ⥤ Cat.{vT, uT})
-
-/--
-The base-fibre functor for the contra-contra case: assigns to each `c : C`
-a base object in `D`.
--/
-abbrev FunctorBetweenContraContraBaseFib := C ⥤ D
-
-/--
-The fibre-fibre functor: for each `c : C`, a functor
-`G.obj (op c) ⥤ F.obj (op (baseFib.obj c))`.  Both `op`s reflect the
-contravariant indexing of the source and the target.
--/
-abbrev FunctorBetweenContraContraFibFib
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D)) :=
-  ∀ c, G.obj (Opposite.op c) ⥤ F.obj (Opposite.op (baseFib.obj c))
-
-/--
-The cross-fibre morphism component.  For `f : c ⟶ c'` and `x' : G.obj (op c')`,
-a morphism from `(fibFib c).obj ((G.map f.op).obj x')` to
-`(F.map (baseFib.map f).op).obj ((fibFib c').obj x')`.
-
-This is the direction of a morphism in `(grothendieckContraFunctor D).obj F`
-from `mkObj (baseFib.obj c) ((fibFib c).obj ((G.map f.op).obj x'))` to
-`mkObj (baseFib.obj c') ((fibFib c').obj x')`.
--/
-abbrev FunctorBetweenContraContraFibHomCrossApp
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :=
-  ∀ {c c' : C} (f : c ⟶ c') (x' : G.obj (Opposite.op c')),
-    (fibFib c).obj ((G.map f.op).toFunctor.obj x') ⟶
-      (F.map (baseFib.map f).op).toFunctor.obj
-        ((fibFib c').obj x')
-
-/--
-Naturality of `fibHomCrossApp`: for `f : c ⟶ c'` and a fibre morphism
-`g : x' ⟶ y'` in `G.obj (op c')`, the square commutes.
--/
-abbrev FunctorBetweenContraContraFibHomCrossNat
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib)
-    (fibHomCrossApp :
-      FunctorBetweenContraContraFibHomCrossApp G F baseFib fibFib) :=
-  ∀ {c c' : C} (f : c ⟶ c') {x' y' : G.obj (Opposite.op c')} (g : x' ⟶ y'),
-    (fibFib c).map ((G.map f.op).toFunctor.map g) ≫ fibHomCrossApp f y' =
-      fibHomCrossApp f x' ≫
-        (F.map (baseFib.map f).op).toFunctor.map ((fibFib c').map g)
-
-/--
-Equality of fibre-fibre values at identity.  Since
-`baseFib.map (𝟙 c) = 𝟙 (baseFib.obj c)`, `(𝟙 c).op = 𝟙 (op c)`, and both
-`G.map (𝟙 _).op = 𝟭 _` and `F.map (𝟙 _).op = 𝟭 _`, the source and target of
-`fibHomCrossApp (𝟙 c) x` coincide with `(fibFib c).obj x`.
--/
-abbrev FunctorBetweenContraContraBaseHomEqId
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :=
-  ∀ (c : C) (x : G.obj (Opposite.op c)),
-    (fibFib c).obj ((G.map (𝟙 c).op).toFunctor.obj x) =
-      (F.map (baseFib.map (𝟙 c)).op).toFunctor.obj
-        ((fibFib c).obj x)
-
-/--
-Derive the identity equality from functor laws.
--/
-lemma functorBetweenContraContraBaseHomEqIdProof
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :
-    FunctorBetweenContraContraBaseHomEqId G F baseFib fibFib := by
-  intro c x
-  have hG : (G.map (𝟙 (Opposite.op c))).toFunctor = 𝟭 _ :=
-    congrArg Cat.Hom.toFunctor (G.map_id _) |>.trans (Cat.id_eq_id _)
-  have hF : (F.map (𝟙 (Opposite.op (baseFib.obj c)))).toFunctor = 𝟭 _ :=
-    congrArg Cat.Hom.toFunctor (F.map_id _) |>.trans (Cat.id_eq_id _)
-  simp only [baseFib.map_id, op_id, hG, hF, Functor.id_obj]
-
-/--
-Equality of fibre-fibre values at composition.  For `f : c ⟶ c'` and
-`g : c' ⟶ c''`, the two ways of transporting
-`(fibFib c'').obj x''` through the contravariant `F` agree.  Stated as
-"split = fused" so that `eqToHom` of this proof transports split → fused.
--/
-abbrev FunctorBetweenContraContraBaseHomEqComp
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'')
-      (x'' : G.obj (Opposite.op c'')),
-    (F.map (baseFib.map f).op).toFunctor.obj
-        ((F.map (baseFib.map g).op).toFunctor.obj
-          ((fibFib c'').obj x'')) =
-      (F.map (baseFib.map (f ≫ g)).op).toFunctor.obj
-        ((fibFib c'').obj x'')
-
-/--
-Derive the composition equality from functor laws.
--/
-lemma functorBetweenContraContraBaseHomEqCompProof
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :
-    FunctorBetweenContraContraBaseHomEqComp G F baseFib fibFib := by
-  intro c c' c'' f g x''
-  have hbase : (baseFib.map (f ≫ g)).op =
-      (baseFib.map g).op ≫ (baseFib.map f).op := by
-    rw [baseFib.map_comp]; rfl
-  rw [hbase, F.map_comp]
-  rfl
-
-/--
-Source equality used by composition coherence: the source object of
-`fibHomCrossApp (f ≫ g) x''` agrees with the source object of the stepwise
-composite, by `G.map_comp` for the contravariant `G`.
--/
-abbrev FunctorBetweenContraContraGMapCompEq
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'')
-      (x'' : G.obj (Opposite.op c'')),
-    (fibFib c).obj ((G.map f.op).toFunctor.obj
-        ((G.map g.op).toFunctor.obj x'')) =
-      (fibFib c).obj ((G.map (f ≫ g).op).toFunctor.obj x'')
-
-/--
-Derive the `G.map_comp` equality from functor laws.
--/
-lemma functorBetweenContraContraGMapCompEqProof
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib) :
-    FunctorBetweenContraContraGMapCompEq G F baseFib fibFib := by
-  intro c c' c'' f g x''
-  have hop : (f ≫ g).op = g.op ≫ f.op := rfl
-  have h := congrArg Cat.Hom.toFunctor (G.map_comp g.op f.op)
-  rw [hop]
-  exact congrArg (fibFib c).obj
-    (congrFun (congrArg Functor.obj h) x'').symm
-
-/--
-Identity coherence: `fibHomCrossApp (𝟙 c) x` equals the derived `eqToHom`.
--/
-abbrev FunctorBetweenContraContraBaseHomId
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib)
-    (fibHomCrossApp :
-      FunctorBetweenContraContraFibHomCrossApp G F baseFib fibFib) :=
-  ∀ (c : C) (x : G.obj (Opposite.op c)),
-    fibHomCrossApp (𝟙 c) x =
-      eqToHom
-        (functorBetweenContraContraBaseHomEqIdProof G F baseFib fibFib c x)
-
-/--
-Composition coherence: `fibHomCrossApp (f ≫ g) x''` decomposes as
-`fibHomCrossApp f ((G.map g.op).obj x'')` followed by transport of
-`fibHomCrossApp g x''` through `F.map (baseFib.map f).op`, adjusted by
-`eqToHom` on both sides.
--/
-abbrev FunctorBetweenContraContraBaseHomComp
-    (baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D))
-    (fibFib : FunctorBetweenContraContraFibFib G F baseFib)
-    (fibHomCrossApp :
-      FunctorBetweenContraContraFibHomCrossApp G F baseFib fibFib) :=
-  ∀ {c c' c'' : C} (f : c ⟶ c') (g : c' ⟶ c'')
-      (x'' : G.obj (Opposite.op c'')),
-    eqToHom
-        (functorBetweenContraContraGMapCompEqProof G F baseFib fibFib
-          f g x'') ≫
-      fibHomCrossApp (f ≫ g) x'' =
-    fibHomCrossApp f ((G.map g.op).toFunctor.obj x'') ≫
-      (F.map (baseFib.map f).op).toFunctor.map
-        (fibHomCrossApp g x'') ≫
-      eqToHom
-        (functorBetweenContraContraBaseHomEqCompProof G F baseFib fibFib
-          f g x'')
-
-/--
-Bundled data for a covariant flat functor between two
-contra-Grothendieck constructions,
-`(grothendieckContraFunctor C).obj G ⥤ (grothendieckContraFunctor
-D).obj F`.
-
-Objects map `(c, x) ↦ mkObj (baseFib.obj c) ((fibFib c).obj x)`;
-morphisms compose `fibHomCrossApp f x'` with the appropriate
-fibre-functor action mirrored from the CovContra structure.
--/
-structure FunctorBetweenContraContraData where
-  /-- The base functor `C ⥤ D`. -/
-  baseFib : FunctorBetweenContraContraBaseFib (C := C) (D := D)
-  /-- Fibre functors: `G.obj (op c) ⥤ F.obj (op (baseFib.obj c))`. -/
-  fibFib : FunctorBetweenContraContraFibFib G F baseFib
-  /-- Cross-fibre morphisms with target-side input. -/
-  fibHomCrossApp :
-    FunctorBetweenContraContraFibHomCrossApp G F baseFib fibFib
-  /-- Naturality of cross-fibre morphisms. -/
-  fibHomCrossNat :
-    FunctorBetweenContraContraFibHomCrossNat G F baseFib fibFib
-      fibHomCrossApp
-  /-- Identity coherence. -/
-  baseHomId :
-    FunctorBetweenContraContraBaseHomId G F baseFib fibFib
-      fibHomCrossApp
-  /-- Composition coherence. -/
-  baseHomComp :
-    FunctorBetweenContraContraBaseHomComp G F baseFib fibFib
-      fibHomCrossApp
-
-end FunctorBetweenContraContra
-
-/-!
-## Natural Transformations Between Functors on Contravariant Grothendieck
-Constructions
-
-This section defines bundled data for natural transformations between functors
-`GrothendieckContra' G' ⥤ GrothendieckContra' F'` that share the same base
-functor.
--/
-
-section NatTransBetweenContra
-
-universe vC vD uC uD
-
-variable {C : Type uC} [Category.{vC} C] (G' : Cᵒᵖ' ⥤ Cat.{vC, uC})
-variable {D : Type uD} [Category.{vD} D] (F' : Dᵒᵖ' ⥤ Cat.{vD, uD})
-variable (baseFib : FunctorBetweenContraBaseFib (C := C) (D := D))
-
-/--
-The component morphisms of a natural transformation between functors on
-contravariant Grothendieck constructions. For each `c : C` and `x : G'.obj c`,
-a morphism from `fibFibG c x` to `fibFibH c x` in `F'.obj (baseFib.obj c)`.
--/
-abbrev NatTransBetweenContraFibNatApp
-    (fibFibG fibFibH : FunctorBetweenContraFibFib G' F' baseFib) :=
-  ∀ (c : C) (x : G'.obj c), (fibFibG c).obj x ⟶ (fibFibH c).obj x
-
-/--
-The naturality condition for the fiber components. For each `c : C` and
-morphism `g : x ⟶ y` in `G'.obj c`:
-```
-fibFibG c x --fibNatApp c x--> fibFibH c x
-    |                              |
-(fibFibG c).map g           (fibFibH c).map g
-    |                              |
-    v                              v
-fibFibG c y --fibNatApp c y--> fibFibH c y
-```
--/
-abbrev NatTransBetweenContraFibNatNat
-    (fibFibG fibFibH : FunctorBetweenContraFibFib G' F' baseFib)
-    (fibNatApp : NatTransBetweenContraFibNatApp G' F' baseFib fibFibG fibFibH) :=
-  ∀ (c : C) {x y : G'.obj c} (g : x ⟶ y),
-    (fibFibG c).map g ≫ fibNatApp c y = fibNatApp c x ≫ (fibFibH c).map g
-
-/--
-The coherence condition relating fiber natural transformations to cross-fiber
-morphisms. For each `f : c ⟶ c'` and `x' : G'.obj c'`:
-```
-(fibFibG c).obj ((G'.map f).obj x') --fibHomCrossAppG f x'-->
-                           (F'.map (baseFib.map f)).obj ((fibFibG c').obj x')
-           |                                              |
-fibNatApp c ((G'.map f).obj x')    (F'.map (baseFib.map f)).map (fibNatApp c' x')
-           |                                              |
-           v                                              v
-(fibFibH c).obj ((G'.map f).obj x') --fibHomCrossAppH f x'-->
-                           (F'.map (baseFib.map f)).obj ((fibFibH c').obj x')
-```
--/
-abbrev NatTransBetweenContraCoherence
-    (fibFibG fibFibH : FunctorBetweenContraFibFib G' F' baseFib)
-    (fibNatApp : NatTransBetweenContraFibNatApp G' F' baseFib fibFibG fibFibH)
-    (fibHomCrossAppG : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFibG)
-    (fibHomCrossAppH : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFibH) :=
-  ∀ {c c' : C} (f : c ⟶ c') (x' : G'.obj c'),
-    fibHomCrossAppG f x' ≫ (F'.map (baseFib.map f)).toFunctor.map (fibNatApp c' x') =
-    fibNatApp c ((G'.map f).toFunctor.obj x') ≫ fibHomCrossAppH f x'
-
-/--
-Bundled data for a natural transformation between functors
-`GrothendieckContra' G' ⥤ GrothendieckContra' F'` that share the same base
-functor.
-
-This structure represents a natural transformation `α : H ⟶ K` where
-both `H` and `K` have the same base functor `baseFib : C ⥤ D`.
--/
-structure NatTransBetweenContraData
-    (fibFibG fibFibH : FunctorBetweenContraFibFib G' F' baseFib)
-    (fibHomCrossAppG : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFibG)
-    (fibHomCrossAppH : FunctorBetweenContraFibHomCrossApp G' F' baseFib fibFibH)
-    where
-  /-- Component morphisms: for each `c` and `x`, a morphism between fibers -/
-  fibNatApp : NatTransBetweenContraFibNatApp G' F' baseFib fibFibG fibFibH
-  /-- Naturality within each fiber -/
-  fibNatNat : NatTransBetweenContraFibNatNat G' F' baseFib fibFibG fibFibH fibNatApp
-  /-- Coherence with cross-fiber morphisms -/
-  coherence : NatTransBetweenContraCoherence G' F' baseFib fibFibG fibFibH fibNatApp
-    fibHomCrossAppG fibHomCrossAppH
-
-end NatTransBetweenContra
 
 /-!
 ## Lax Natural Transformations and the Lax Functor Category
@@ -6608,123 +6538,6 @@ end LaxFunctorCat
 
 open CategoryTheory
 
-/-!
-## Decomposition of FunctorBetweenData via Lax Natural Transformations
-
-This section shows that `FunctorBetweenData G F` decomposes as a base functor
-`baseFib : C ⥤ D` together with a lax natural transformation
-`G ⟹ baseFib ⋙ F`.
-
-For this to work, we require the Cat-valued functors to have matching
-universe levels.
--/
-
-section FunctorBetweenDecomposition
-
-universe vC uC
-
-variable {C : Type uC} [Category.{vC} C] (G : C ⥤ Cat.{vC, uC})
-variable {D : Type uC} [Category.{vC} D] (F : D ⥤ Cat.{vC, uC})
-
-/--
-Extract a lax natural transformation from FunctorBetweenData.
-
-Given `data : FunctorBetweenData G F`, we get a lax natural transformation
-`G ⟹ data.baseFib ⋙ F`.
--/
-def FunctorBetweenData.toLaxNatTrans (data : FunctorBetweenData G F) :
-    LaxNatTransData G (data.baseFib ⋙ F) where
-  app c := data.fibFib c
-  laxApp {c c'} f x := data.fibHomCrossApp f x
-  laxNat {c c'} f {x y} φ := data.fibHomCrossNat f φ
-  laxId c x := data.baseHomId c x
-  laxComp {c c' c''} f g x := by
-    simp only [Functor.comp_obj, Functor.comp_map]
-    exact data.baseHomComp f g x
-
-/--
-Construct FunctorBetweenData from a base functor and lax natural transformation.
-
-Given `baseFib : C ⥤ D` and `α : LaxNatTransData G (baseFib ⋙ F)`, we get
-`FunctorBetweenData G F`.
--/
-def FunctorBetweenData.ofLaxNatTrans (baseFib : C ⥤ D)
-    (α : LaxNatTransData G (baseFib ⋙ F)) : FunctorBetweenData G F where
-  baseFib := baseFib
-  fibFib c := α.app c
-  fibHomCrossApp {_ _} f x := α.laxApp f x
-  fibHomCrossNat {_ _} f {_ _} φ := α.laxNat f φ
-  baseHomId c x := α.laxId c x
-  baseHomComp {_ _ _} f g x := α.laxComp f g x
-
-/--
-Round-trip: `toLaxNatTrans` followed by `ofLaxNatTrans` is identity.
--/
-theorem FunctorBetweenData.ofLaxNatTrans_toLaxNatTrans
-    (data : FunctorBetweenData G F) :
-    ofLaxNatTrans G F data.baseFib (toLaxNatTrans G F data) = data := by
-  rfl
-
-/--
-Round-trip: `ofLaxNatTrans` followed by `toLaxNatTrans` is identity.
--/
-theorem FunctorBetweenData.toLaxNatTrans_ofLaxNatTrans (baseFib : C ⥤ D)
-    (α : LaxNatTransData G (baseFib ⋙ F)) :
-    toLaxNatTrans G F (ofLaxNatTrans G F baseFib α) = α := by
-  rfl
-
-/--
-The type of FunctorBetweenData decomposes as a sigma type.
-
-`FunctorBetweenData G F ≃ Σ (baseFib : C ⥤ D), LaxNatTransData G (baseFib ⋙ F)`
--/
-def FunctorBetweenData.equivSigmaLaxNatTrans :
-    FunctorBetweenData G F ≃
-      Σ (baseFib : C ⥤ D), LaxNatTransData G (baseFib ⋙ F) where
-  toFun data := ⟨data.baseFib, data.toLaxNatTrans G F⟩
-  invFun p := ofLaxNatTrans G F p.1 p.2
-  left_inv := ofLaxNatTrans_toLaxNatTrans G F
-  right_inv _ := rfl
-
-/--
-Construct the functor `Grothendieck G ⥤ Grothendieck F` via the lax-nat-trans-pre
-factorization.
-
-Given `data : FunctorBetweenData G F`, this constructs the functor as:
-`(data.toLaxNatTrans G F).toFunctor ⋙ Grothendieck.pre F data.baseFib`
-
-This makes explicit that functors between Grothendieck constructions factor through
-the pullback construction via `pre`.
--/
-def FunctorBetweenData.toFunctorViaPre (data : FunctorBetweenData G F) :
-    Grothendieck G ⥤ Grothendieck F :=
-  (data.toLaxNatTrans G F).toFunctor ⋙ Grothendieck.pre F data.baseFib
-
-/--
-The object map of `toFunctorViaPre`.
--/
-theorem FunctorBetweenData.toFunctorViaPre_obj (data : FunctorBetweenData G F)
-    (X : Grothendieck G) :
-    (data.toFunctorViaPre).obj X = ⟨data.baseFib.obj X.base, (data.fibFib X.base).obj X.fiber⟩ :=
-  rfl
-
-/--
-The morphism map of `toFunctorViaPre`.
--/
-theorem FunctorBetweenData.toFunctorViaPre_map (data : FunctorBetweenData G F)
-    {X Y : Grothendieck G} (f : X ⟶ Y) :
-    (data.toFunctorViaPre).map f =
-      ⟨data.baseFib.map f.base,
-       data.fibHomCrossApp f.base X.fiber ≫ (data.fibFib Y.base).map f.fiber⟩ := rfl
-
-/--
-The factored functor agrees with `functorBetweenFibFunc` on objects within fibers.
--/
-theorem FunctorBetweenData.toFunctorViaPre_eq_functorBetweenFibFunc_obj
-    (data : FunctorBetweenData G F) (c : C) (x : G.obj c) :
-    (data.toFunctorViaPre).obj ⟨c, x⟩ = (functorBetweenFibFunc G F data c).obj x := rfl
-
-end FunctorBetweenDecomposition
 
 /-!
 ## Oplax Natural Transformations for Contravariant Cat-Valued Functors
@@ -7089,81 +6902,6 @@ theorem OplaxNatTransData.whiskerLeft_comp (H : D ⥤ C)
 
 end OplaxNatTrans
 
-/-!
-## Contravariant FunctorBetween Decomposition via Pre
-
-This section shows that `FunctorBetweenContraData` decomposes via oplax natural
-transformations and the `pre` functor.
--/
-
-section FunctorBetweenContraDecomposition
-
-universe vC' uC'
-
-variable {C : Type uC'} [Category.{vC'} C] (G' : Cᵒᵖ' ⥤ Cat.{vC', uC'})
-variable {D : Type uC'} [Category.{vC'} D] (F' : Dᵒᵖ' ⥤ Cat.{vC', uC'})
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Convert a `FunctorBetweenContraData` to an `OplaxNatTransData` for the composite
-functor `functorOp'Obj baseFib ⋙ F'`.
-
-This shows that functor data between contravariant Grothendieck constructions
-decomposes into a base functor and an oplax natural transformation.
-
-Note: `FunctorBetweenContraData` uses composition `f ≫ g` for `f : c ⟶ c'` and
-`g : c' ⟶ c''`, while `OplaxNatTransData` uses composition `g ≫ f` for
-`f : c' ⟶ c` and `g : c'' ⟶ c'`. We adapt by swapping the arguments when
-converting.
--/
-def FunctorBetweenContraData.toOplaxNatTrans (data : FunctorBetweenContraData G' F') :
-    OplaxNatTransData G' (functorOp'Obj data.baseFib ⋙ F') where
-  app c := data.fibFib c
-  oplaxApp {c c'} f x := data.fibHomCrossApp f x
-  oplaxNat {c c'} f {x y} φ := data.fibHomCrossNat f φ
-  oplaxId c x := data.baseHomId c x
-  oplaxComp {c c' c''} f g x := by
-    -- OplaxComp: f : c' ⟶ c, g : c'' ⟶ c', x : G'.obj c, composition g ≫ f : c'' ⟶ c
-    -- data.baseHomComp expects: f' : c ⟶ c', g' : c' ⟶ c'', composition f' ≫ g'
-    -- We use data.baseHomComp g f x to match: g : c'' ⟶ c', f : c' ⟶ c, composition g ≫ f
-    simp only [Functor.comp_obj, Functor.comp_map]
-    have h := data.baseHomComp g f x
-    simp only [functorOp'Obj] at h ⊢
-    rw [← h]
-    simp only [eqToHom_trans_assoc, eqToHom_refl, Category.id_comp]
-
-/--
-Construct the functor `GrothendieckContra' G' ⥤ GrothendieckContra' F'` via the
-oplax-pre factorization.
-
-Given `FunctorBetweenContraData G' F'`, we factor the functor as:
-`toOplaxNatTrans.toFunctor ⋙ GrothendieckContra'.pre F' baseFib`
-
-This makes the `pre` functor central to the decomposition of functors between
-contravariant Grothendieck constructions.
--/
-def FunctorBetweenContraData.toFunctorViaPre (data : FunctorBetweenContraData G' F') :
-    GrothendieckContra' G' ⥤ GrothendieckContra' F' :=
-  (data.toOplaxNatTrans G' F').toFunctor ⋙ GrothendieckContra'.pre F' data.baseFib
-
-/--
-The object map of `toFunctorViaPre`.
--/
-theorem FunctorBetweenContraData.toFunctorViaPre_obj (data : FunctorBetweenContraData G' F')
-    (X : GrothendieckContra' G') :
-    (data.toFunctorViaPre G' F').obj X =
-      ⟨data.baseFib.obj X.base, (data.fibFib X.base).obj X.fiber⟩ := rfl
-
-/--
-The morphism map of `toFunctorViaPre`.
--/
-theorem FunctorBetweenContraData.toFunctorViaPre_map (data : FunctorBetweenContraData G' F')
-    {X Y : GrothendieckContra' G'} (f : X ⟶ Y) :
-    (data.toFunctorViaPre G' F').map f =
-      ⟨data.baseFib.map f.base,
-       (data.fibFib X.base).map f.fiber ≫ data.fibHomCrossApp f.base Y.fiber⟩ := rfl
-
-end FunctorBetweenContraDecomposition
 
 /-!
 ## The Category of Contravariant Cat-Valued Functors with Oplax Natural Transformations
@@ -8236,263 +7974,6 @@ end FunctorBetweenCovContraData
 
 end FunctorBetweenCovContraExtractor
 
-/-!
-### Extractor for `FunctorBetweenContraContraData`
-
-Construct a functor
-`(grothendieckContraFunctor C).obj G ⥤ (grothendieckContraFunctor D).obj F`
-from bundled `FunctorBetweenContraContraData`.  The construction proceeds by
-building an intermediate covariant functor
-`Grothendieck (G ⋙ Cat.opFunctor) ⥤ Grothendieck (F ⋙ Cat.opFunctor)`
-via `Grothendieck.functorTo`, then applying `Functor.op`.
--/
-
-section FunctorBetweenContraContraExtractor
-
-universe vC vD uC uD vT uT
-
-variable {C : Type uC} [Category.{vC} C] {G : Cᵒᵖ ⥤ Cat.{vT, uT}}
-variable {D : Type uD} [Category.{vD} D] {F : Dᵒᵖ ⥤ Cat.{vT, uT}}
-
-namespace FunctorBetweenContraContraData
-
-/--
-Base functor for the `FunctorToData` repackaging: sends an object `X` of
-`Grothendieck (G ⋙ Cat.opFunctor)` to `op (data.baseFib.obj X.base.unop) : Dᵒᵖ`,
-obtained by forgetting the source fibre and post-composing the user-provided
-base functor with `op`.
--/
-def toBaseFunc (data : FunctorBetweenContraContraData G F) :
-    Grothendieck (G ⋙ Cat.opFunctor) ⥤ Dᵒᵖ :=
-  Grothendieck.forget (G ⋙ Cat.opFunctor) ⋙ data.baseFib.op
-
-/--
-Fibre object for the `FunctorToData` repackaging.
--/
-def toFib (data : FunctorBetweenContraContraData G F)
-    (X : Grothendieck (G ⋙ Cat.opFunctor)) :
-    (F ⋙ Cat.opFunctor).obj (data.toBaseFunc.obj X) :=
-  Opposite.op ((data.fibFib X.base.unop).obj X.fiber.unop)
-
-/--
-The pre-op fibre morphism: a morphism in `F.obj (op (baseFib.obj Y.base.unop))`
-from `(data.fibFib Y.base.unop).obj Y.fiber.unop` to the transported source.
--/
-def toHomUnop (data : FunctorBetweenContraContraData G F)
-    {X Y : Grothendieck (G ⋙ Cat.opFunctor)} (g : X ⟶ Y) :
-    (data.fibFib Y.base.unop).obj Y.fiber.unop ⟶
-      (F.map (data.baseFib.map g.base.unop).op).toFunctor.obj
-        ((data.fibFib X.base.unop).obj X.fiber.unop) :=
-  (data.fibFib Y.base.unop).map g.fiber.unop ≫
-    data.fibHomCrossApp g.base.unop X.fiber.unop
-
-/-!
-### Identity coherence for `toHomUnop`
-
-At the identity, `toHomUnop (𝟙 X)` reduces to a chain of `eqToHom`s.
--/
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-The first factor of `toHomUnop (𝟙 X)` is `(fibFib X.base.unop).map
-(Grothendieck.Hom.fiber (𝟙 X)).unop`, which reduces to an `eqToHom` because
-`Grothendieck.Hom.fiber (𝟙 X)` is itself an `eqToHom` (by
-`Grothendieck.id_fiber`), its `unop` is also an `eqToHom`, and
-`(fibFib _).map` preserves `eqToHom`.
--/
-lemma toHomUnop_id_fst (data : FunctorBetweenContraContraData G F)
-    (X : Grothendieck (G ⋙ Cat.opFunctor)) :
-    (data.fibFib X.base.unop).map (Grothendieck.Hom.fiber (𝟙 X)).unop =
-      eqToHom (by
-        congr 2
-        have hG : ((G ⋙ Cat.opFunctor).map
-            (Grothendieck.Hom.base (𝟙 X))).toFunctor = 𝟭 _ :=
-          congrArg Cat.Hom.toFunctor ((G ⋙ Cat.opFunctor).map_id _)
-            |>.trans (Cat.id_eq_id _)
-        exact (congrFun (congrArg Functor.obj hG) X.fiber).symm) := by
-  rw [Grothendieck.id_fiber]
-  simp [eqToHom_unop]
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-The second factor of `toHomUnop (𝟙 X)` is
-`data.fibHomCrossApp (Grothendieck.Hom.base (𝟙 X)).unop X.fiber.unop`,
-which `data.baseHomId` identifies with an `eqToHom`.  Note that
-`(Grothendieck.Hom.base (𝟙 X)).unop = 𝟙 X.base.unop` definitionally
-via `Grothendieck.id_base` and `op_id`, so this is `data.baseHomId`
-applied directly.
--/
-lemma toHomUnop_id_snd (data : FunctorBetweenContraContraData G F)
-    (X : Grothendieck (G ⋙ Cat.opFunctor)) :
-    data.fibHomCrossApp (Grothendieck.Hom.base (𝟙 X)).unop X.fiber.unop =
-      eqToHom
-        (functorBetweenContraContraBaseHomEqIdProof G F data.baseFib
-          data.fibFib X.base.unop X.fiber.unop) :=
-  data.baseHomId X.base.unop X.fiber.unop
-
-/--
-Endpoint equality for `toHomUnop (𝟙 X)` as an `eqToHom`.  Extracted as a
-separate lemma so it can also serve as the `hom_id` eqToHom-proof in
-`toFunctorToData`.
--/
-lemma toHomUnop_id_endpoints_eq (data : FunctorBetweenContraContraData G F)
-    (X : Grothendieck (G ⋙ Cat.opFunctor)) :
-    (data.fibFib X.base.unop).obj X.fiber.unop =
-      (F.map (data.baseFib.map
-          (Grothendieck.Hom.base (𝟙 X)).unop).op).toFunctor.obj
-        ((data.fibFib X.base.unop).obj X.fiber.unop) := by
-  have hbase : (Grothendieck.Hom.base (𝟙 X)).unop = 𝟙 X.base.unop := by
-    rw [Grothendieck.id_base]; rfl
-  rw [hbase, data.baseFib.map_id, op_id, F.map_id]
-  rfl
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Collapsed form of `toHomUnop` at the identity: equals an `eqToHom` from the
-fibre at `X` to its transport through `F.map (baseFib.map (𝟙 _)).op`.
--/
-lemma toHomUnop_id (data : FunctorBetweenContraContraData G F)
-    (X : Grothendieck (G ⋙ Cat.opFunctor)) :
-    data.toHomUnop (𝟙 X) = eqToHom (data.toHomUnop_id_endpoints_eq X) := by
-  unfold toHomUnop
-  rw [data.toHomUnop_id_fst X, data.toHomUnop_id_snd X, eqToHom_trans]
-
-/-!
-### Composition coherence for `toHomUnop`
-
-At a composition `g ≫ h : X ⟶ Z` in `Grothendieck (G ⋙ Cat.opFunctor)`,
-`toHomUnop (g ≫ h)` decomposes as `toHomUnop h` followed by the
-`F.map (baseFib.map h.base.unop).op`-transport of `toHomUnop g`, followed by
-an `eqToHom`.
--/
-
-/--
-Endpoint equality for `toHomUnop_comp`: the "split" form of transporting an
-object through `F.map (baseFib.map g.base.unop).op` then through
-`F.map (baseFib.map h.base.unop).op` equals the "fused" form of transporting
-through `F.map (baseFib.map (g ≫ h).base.unop).op`.
--/
-lemma toHomUnop_comp_endpoints_eq
-    (data : FunctorBetweenContraContraData G F)
-    {X Y Z : Grothendieck (G ⋙ Cat.opFunctor)} (g : X ⟶ Y) (h : Y ⟶ Z) :
-    (F.map (data.baseFib.map h.base.unop).op).toFunctor.obj
-        ((F.map (data.baseFib.map g.base.unop).op).toFunctor.obj
-          ((data.fibFib X.base.unop).obj X.fiber.unop)) =
-      (F.map (data.baseFib.map (g ≫ h).base.unop).op).toFunctor.obj
-        ((data.fibFib X.base.unop).obj X.fiber.unop) := by
-  have hbase : (g ≫ h).base.unop = h.base.unop ≫ g.base.unop := rfl
-  rw [hbase, data.baseFib.map_comp, op_comp, F.map_comp]
-  rfl
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Distributivity of `(fibFib Z.base.unop).map` over the three-piece
-composition exposed by `Grothendieck.comp_fiber` after taking `unop`.
--/
-lemma fibFib_map_comp_fiber
-    (data : FunctorBetweenContraContraData G F)
-    {X Y Z : Grothendieck (G ⋙ Cat.opFunctor)} (g : X ⟶ Y) (h : Y ⟶ Z) :
-    (data.fibFib Z.base.unop).map (g ≫ h).fiber.unop =
-      (data.fibFib Z.base.unop).map h.fiber.unop ≫
-        (data.fibFib Z.base.unop).map
-          ((G.map h.base.unop.op).toFunctor.map g.fiber.unop) ≫
-        eqToHom (by
-          have hG := congrArg Cat.Hom.toFunctor
-            ((G ⋙ Cat.opFunctor).map_comp g.base h.base)
-          have hC := Cat.Hom.comp_toFunctor
-            ((G ⋙ Cat.opFunctor).map g.base) ((G ⋙ Cat.opFunctor).map h.base)
-          have h1 :=
-            congrFun (congrArg Functor.obj (hG.trans hC)) X.fiber
-          exact congrArg (fun (z : (G.obj Z.base)ᵒᵖ) =>
-            (data.fibFib Z.base.unop).obj z.unop) h1.symm) := by
-  rw [Grothendieck.comp_fiber]
-  simp [eqToHom_unop]
-
-set_option backward.isDefEq.respectTransparency false in
-/--
-Collapsed form of `toHomUnop` at a composition `g ≫ h` in
-`Grothendieck (G ⋙ Cat.opFunctor)`.  Decomposes as `toHomUnop h` followed by
-the `F.map (baseFib.map h.base.unop).op`-transport of `toHomUnop g`, adjusted
-by the `eqToHom` from the composition endpoint equality.
--/
-lemma toHomUnop_comp (data : FunctorBetweenContraContraData G F)
-    {X Y Z : Grothendieck (G ⋙ Cat.opFunctor)} (g : X ⟶ Y) (h : Y ⟶ Z) :
-    data.toHomUnop (g ≫ h) =
-      data.toHomUnop h ≫
-        (F.map (data.baseFib.map h.base.unop).op).toFunctor.map
-          (data.toHomUnop g) ≫
-        eqToHom (data.toHomUnop_comp_endpoints_eq g h) := by
-  unfold toHomUnop
-  rw [data.fibFib_map_comp_fiber g h]
-  conv_lhs =>
-    rw [show data.fibHomCrossApp (g ≫ h).base.unop X.fiber.unop =
-        eqToHom (functorBetweenContraContraGMapCompEqProof G F data.baseFib
-          data.fibFib h.base.unop g.base.unop X.fiber.unop).symm ≫
-        (data.fibHomCrossApp h.base.unop
-            ((G.map g.base.unop.op).toFunctor.obj X.fiber.unop) ≫
-          (F.map (data.baseFib.map h.base.unop).op).toFunctor.map
-            (data.fibHomCrossApp g.base.unop X.fiber.unop) ≫
-          eqToHom (functorBetweenContraContraBaseHomEqCompProof G F
-            data.baseFib data.fibFib h.base.unop g.base.unop X.fiber.unop))
-        from by
-      have hcomp := data.baseHomComp h.base.unop g.base.unop X.fiber.unop
-      rw [← hcomp]
-      simp]
-  simp only [Functor.map_comp, Category.assoc]
-  congr 1
-  -- After canceling (fibFib Z).map h.fiber.unop the LHS has two adjacent
-  -- eqToHoms (the 3-piece one from `fibFib_map_comp_fiber` and the `.symm`
-  -- of the `GMapCompEqProof` introduced by `baseHomComp`).  Their composite
-  -- collapses via `eqToHom_trans_assoc` and `eqToHom_refl`.
-  rw [eqToHom_trans_assoc, eqToHom_refl, Category.id_comp]
-  -- Reassociate to put the fibHomCrossNat-relevant pair adjacent.
-  simp only [← Category.assoc]
-  -- Apply fibHomCrossNat with explicit y' to ensure the right elaboration
-  -- of the target object.
-  rw [show (data.fibFib Z.base.unop).map
-        ((G.map h.base.unop.op).toFunctor.map g.fiber.unop) ≫
-        data.fibHomCrossApp h.base.unop
-          ((G.map g.base.unop.op).toFunctor.obj X.fiber.unop) =
-      data.fibHomCrossApp h.base.unop Y.fiber.unop ≫
-        (F.map (data.baseFib.map h.base.unop).op).toFunctor.map
-          ((data.fibFib Y.base.unop).map g.fiber.unop) from
-    data.fibHomCrossNat h.base.unop g.fiber.unop]
-
-/--
-The `FunctorToData` packaging of a `FunctorBetweenContraContraData` suitable
-for feeding into `Grothendieck.functorTo` at source
-`Grothendieck (G ⋙ Cat.opFunctor)` and target `F ⋙ Cat.opFunctor`.
--/
-def toFunctorToData (data : FunctorBetweenContraContraData G F) :
-    Grothendieck.FunctorToData (F ⋙ Cat.opFunctor)
-      (D := Grothendieck (G ⋙ Cat.opFunctor)) where
-  baseFunc := data.toBaseFunc
-  fib X := data.toFib X
-  hom g := Quiver.Hom.op (data.toHomUnop g)
-  hom_id X := by
-    change Quiver.Hom.op (data.toHomUnop (𝟙 X)) = eqToHom _
-    rw [data.toHomUnop_id X, eqToHom_op]
-  hom_comp {X Y Z} g h := by
-    change Quiver.Hom.op (data.toHomUnop (g ≫ h)) = _
-    rw [data.toHomUnop_comp g h]
-    simp only [op_comp, eqToHom_op, Category.assoc, Functor.comp_map,
-      Cat.opFunctor_map]
-    rfl
-
-/--
-Construct a functor
-`(grothendieckContraFunctor C).obj G ⥤ (grothendieckContraFunctor D).obj F`
-from bundled `FunctorBetweenContraContraData`.  Constructed as the `.op` of
-the `Grothendieck.functorTo` built from `toFunctorToData`.
--/
-def toFunctor (data : FunctorBetweenContraContraData G F) :
-    (grothendieckContraFunctor C).obj G ⥤
-      (grothendieckContraFunctor D).obj F :=
-  (Grothendieck.functorTo (F ⋙ Cat.opFunctor) data.toFunctorToData).op
-
-end FunctorBetweenContraContraData
-
-end FunctorBetweenContraContraExtractor
 
 /-!
 ### FunctorFromData: Bundled data for functors FROM the contravariant
