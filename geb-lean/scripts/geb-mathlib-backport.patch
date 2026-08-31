@@ -326,6 +326,59 @@ index f9e2f2b..c3b1f96 100644
    exact key g (X ◁ f ≫ g) fun i ↦ hten i
  
  /-- `FinSetSkel` is monoidal closed: the exponential of the object of
+diff --git a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/Grothendieck/Functor/From.lean b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/Grothendieck/Functor/From.lean
+index c89c886..8a5fc85 100644
+--- a/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/Grothendieck/Functor/From.lean
++++ b/vendor/geb-mathlib/Geb/Mathlib/CategoryTheory/Grothendieck/Functor/From.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.CategoryTheory.Grothendieck.Basic
+@@ -128,7 +129,7 @@ structure FunctorFromData : Type (max u v u₂ v₂ u₃ v₃) where
+ 
+ variable {F}
+ 
+-set_option backward.isDefEq.respectTransparency.types false in
++set_option backward.isDefEq.respectTransparency false in
+ /-- The functor `Grothendieck F ⥤ E` determined by a `FunctorFromData`. -/
+ def functorFromData (data : FunctorFromData F E) : Grothendieck F ⥤ E where
+   obj X := (data.fib X.base).obj X.fiber
+@@ -262,6 +263,7 @@ structure NatTransFromData (dataG dataH : FunctorFromData F E) :
+ 
+ variable {F}
+ 
++set_option backward.isDefEq.respectTransparency false in
+ /-- The natural transformation determined by a `NatTransFromData`. -/
+ def natTransFrom {dataG dataH : FunctorFromData F E}
+     (nat : NatTransFromData F dataG dataH) :
+@@ -345,6 +347,7 @@ def NatTransFromData.id (data : FunctorFromData F E) :
+     ext x
+     simp
+ 
++set_option backward.isDefEq.respectTransparency false in
+ /-- Composition of transformations of `FunctorFromData`. -/
+ def NatTransFromData.comp {dataG dataH dataK : FunctorFromData F E}
+     (nat₁ : NatTransFromData F dataG dataH)
+@@ -545,6 +548,7 @@ def leftOpEquiv (A : Type u₁) [Category.{v₁} A] (B : Type u₃) [Category.{v
+   functor_unitIso_comp _ := by
+     ext x
+     simp
++    rfl
+ 
+ end Functor
+ 
+@@ -608,6 +612,7 @@ def FunctorFromData.mk (fib : FunctorFromFib G T) (hom : FunctorFromHom G fib)
+         simp only [NatTrans.op_app, unop_id, hom_id c.unop, eqToHom_app,
+           eqToHom_op]
+         erw [eqToHom_app]
++        rfl
+       hom_comp := fun c₁ c₂ c₃ f g ↦ by
+         ext x
+         erw [NatTrans.comp_app, NatTrans.comp_app]
 diff --git a/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean b/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean
 index 6ed36e0..e0bce89 100644
 --- a/vendor/geb-mathlib/Geb/Mathlib/Computability/BellantoniCook/Tree.lean
