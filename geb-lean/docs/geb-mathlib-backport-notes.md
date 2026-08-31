@@ -20,6 +20,7 @@
   - [13. `unusedArguments` reports a constant function](#13-unusedarguments-reports-a-constant-function)
   - [14. Declaration reached upstream through a wider import closure](#14-declaration-reached-upstream-through-a-wider-import-closure)
   - [15. `Arrow.mk_eq_mk_iff` states its endpoints through `𝟭 C`](#15-arrowmk_eq_mk_iff-states-its-endpoints-through-%F0%9D%9F%AD-c)
+  - [16. `isDefEq` transparency changed in v4.34](#16-isdefeq-transparency-changed-in-v434)
 - [Updating the patch for a new upstream](#updating-the-patch-for-a-new-upstream)
   - [The no-op condition](#the-no-op-condition)
 - [Module exclusion](#module-exclusion)
@@ -422,6 +423,59 @@ genuinely new (decide the adaptation, add a category here).
   implicit endpoint arguments.
 - Adaptation: normalise the hypothesis and the goal first, prepending
   `simp only [Functor.id_obj] at hf ⊢` to the existing `simp only`.
+
+### 16. `isDefEq` transparency changed in v4.34
+
+- Upstream cause: Lean core narrowed the backward-compatibility option
+  `backward.isDefEq.respectTransparency` to
+  `backward.isDefEq.respectTransparency.types`, and the underlying
+  `isDefEq` change that the option compensates for also makes several
+  unifications in `CategoryTheory/Grothendieck/Functor/From.lean`
+  succeed under `v4.34.0-rc2` that do not under v4.29. Upstream sets
+  the option on `Grothendieck.functorFromData` (in its `.types`
+  spelling) and on `Grothendieck.ofFunctorFrom` (in the unnarrowed
+  spelling, which both versions accept).
+- v4.29 symptom:
+  `` Unknown option `backward.isDefEq.respectTransparency.types` `` on
+  the `set_option` line, repeated once per syntax linter as
+  `linter ... failed: Unknown option ...`; the declaration the option
+  guards then elaborates with metavariables, and every later
+  declaration mentioning it cascades into `(kernel) application type
+  mismatch`, `(kernel) declaration has metavariables`, and
+  `` Unknown constant `_inhabitedExprDummy` ``.
+- Adaptation, option name: substitute the v4.29 spelling throughout the
+  vendored tree. The adaptation is mechanical, so re-applying it to a
+  fresh upstream source is a re-run rather than a hunk-by-hunk
+  re-anchoring:
+
+  ```sh
+  grep -rlZ 'backward\.isDefEq\.respectTransparency\.types' vendor/geb-mathlib \
+    | xargs -0 sed -i \
+        's/backward\.isDefEq\.respectTransparency\.types/backward.isDefEq.respectTransparency/g'
+  ```
+
+- Adaptation, further declarations needing the option: under v4.29 the
+  stricter `isDefEq` also blocks rewrites for which upstream needs no
+  option. In `Grothendieck.natTransFrom`'s `naturality` field the
+  `(nat.fibNat Y.base).naturality f.fiber` argument of the `simp only`
+  fails to fire (reported as `This simp argument is unused`), leaving
+  the following `rw [..., h, ...]` without its pattern; in
+  `Grothendieck.NatTransFromData.comp`'s `coherence` field the opening
+  `rw [← Category.assoc, ...]` reports that `?f ≫ ?g ≫ ?h` does not
+  occur in a target that visibly contains it. Prepend
+  `set_option backward.isDefEq.respectTransparency false in` to each of
+  the two declarations, leaving the proofs as upstream writes them.
+  Setting the option for the whole module instead is not equivalent: it
+  makes the `simp only` in `Grothendieck.functorFromDataToFunctorCat`'s
+  `map_comp` field close its goal, so the `rfl` after it reports
+  `No goals to be solved`.
+- Adaptation, closing `rfl`: two proofs in the module end one
+  definitional step short under v4.29, as in category 7.
+  `Functor.leftOpEquiv`'s `functor_unitIso_comp` field is left with
+  `((𝟙 x).unop.app _).unop = 𝟙 _` after its `simp`, and
+  `CoGrothendieck.FunctorFromData.mk`'s `hom_id` field with
+  `eqToHom ⋯ = eqToHom ⋯` after its `erw [eqToHom_app]`. Append `rfl`
+  to each, which runs at default transparency.
 
 ## Updating the patch for a new upstream
 
