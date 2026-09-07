@@ -41,10 +41,25 @@ genuinely new (decide the adaptation, add a category here).
 
 ### 1. `GebMeta` not vendored
 
-- Upstream cause: the `Geb` index imports `GebMeta`, a separate library
-  not vendored (its `@[env_linter]` would mis-audit `geb-lean`).
-- v4.29 symptom: `unknown module GebMeta` building the `Geb` index.
-- Adaptation: delete the `import GebMeta` line from `Geb.lean`.
+- Upstream cause: `GebMeta` is a separate library, not vendored (its
+  `@[env_linter]` would mis-audit `geb-lean`). The `Geb` index imports
+  it, and each literate module (upstream `docs/rules/lean-coding.md`
+  § Literate modules) carries `meta import GebMeta` for the `{cite}`
+  docstring role it defines, writing its docstrings as Verso markup
+  under `set_option doc.verso true`.
+- v4.29 symptom: `unknown module prefix 'GebMeta'` building the `Geb`
+  index or a literate module. The pinned toolchain accepts `doc.verso`
+  and the `{name}`, `{lit}`, and `{option}` roles; only `{cite}` is
+  unknown to it, and a bare `[Key]` under `doc.verso` is a link-syntax
+  error.
+- Adaptation: `scripts/refresh-geb-mathlib.sh` deletes every import of
+  `GebMeta`, in any of the module system's four import forms, and
+  rewrites each ``{cite}`Key` `` span to `\[Key\]`, the `doc.verso`
+  spelling of mathlib's bare `[Key]` citation form (the conversion
+  upstream's `scripts/extract-pr.sh` applies at extraction). The pass
+  runs after `git apply`, as module exclusion does, so no patch hunk is
+  involved and a newly-ingested literate module needs no patch
+  extension. `PROVENANCE.md` records the pass.
 
 ### 2. `linter.checkUnivs` configuration absent in v4.29
 

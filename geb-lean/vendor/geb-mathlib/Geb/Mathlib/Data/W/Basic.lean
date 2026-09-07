@@ -9,51 +9,57 @@ module
 public import Mathlib.Data.W.Basic
 public import Geb.Mathlib.Data.FinEnum
 
+set_option doc.verso true
+
 /-!
 # The W-type fold and paramorphism: computation rules and uniqueness
 
-`WType.elim` is the non-dependent fold of a W-type: the morphism into a
-given algebra of the polynomial endofunctor `X ↦ Σ a, β a → X`. mathlib
-states the fold but neither its computation rule as a named `@[simp]`
-lemma nor its uniqueness. Together the two make `WType β` the initial
-algebra of that endofunctor, stated concretely. `WType.para` generalises
-the fold to a paramorphism, whose step additionally sees each node's
-children as subtrees, not only as their folded values.
+{name}`WType.elim` is the non-dependent fold of a W-type: the morphism
+into a given algebra of the polynomial endofunctor
+{lit}`X ↦ Σ a, β a → X`. mathlib states the fold but neither its
+computation rule as a named {lit}`@[simp]` lemma nor its uniqueness.
+Together the two make {lit}`WType β` the initial algebra of that
+endofunctor, stated concretely. {lit}`WType.para` generalises the fold
+to a paramorphism, whose step additionally sees each node's children as
+subtrees, not only as their folded values.
 
 ## Main definitions
 
-* `WType.para` — the paramorphism: a fold whose step function receives
-  each child as a subtree paired with its folded value.
-* `WType.beq` — Boolean equality of W-trees, decidable when the shape
-  type has decidable equality and every direction type is finitely
-  enumerable.
+* {lit}`WType.para` — the paramorphism: a fold whose step function
+  receives each child as a subtree paired with its folded value.
+* {lit}`WType.beq` — Boolean equality of W-trees, decidable when the
+  shape type has decidable equality and every direction type is
+  finitely enumerable.
 
 ## Main statements
 
-* `WType.elim_mk` — the computation rule: the fold of a constructor
-  application is the algebra applied to the folded children.
-* `WType.elim_unique` — uniqueness: a function satisfying the
+* {lit}`WType.elim_mk` — the computation rule: the fold of a
+  constructor application is the algebra applied to the folded
+  children.
+* {lit}`WType.elim_unique` — uniqueness: a function satisfying the
   computation rule is the fold.
-* `WType.para_mk` — the paramorphism's computation rule.
-* `WType.beq_eq_true_iff` — `beq` decides equality of W-trees.
-* `WType.instDecidableEq` — the resulting `DecidableEq (WType β)`
-  instance.
+* {lit}`WType.para_mk` — the paramorphism's computation rule.
+* {lit}`WType.beq_eq_true_iff` — {lit}`beq` decides equality of
+  W-trees.
+* {lit}`WType.instDecidableEq` — the resulting
+  {lit}`DecidableEq (WType β)` instance.
 
 ## Implementation notes
 
-`elim_mk` holds by `rfl`; mathlib's equation compiler generates the
-equation, and the named `@[simp]` form is what makes the hypothesis
-shape of `elim_unique` usable by `simp` at call sites. `elim_unique`
-drives its recursion through an explicit `WType.rec` application into a
-`Prop`-valued motive. `para` is `elim` at the product carrier
-`WType β × γ`, whose first component reconstructs the subtree; its
-computation rule `para_mk` does not hold by `rfl` and is proved through
-that reconstruction.
+{lit}`elim_mk` holds by {name}`rfl`; mathlib's equation compiler
+generates the equation, and the named {lit}`@[simp]` form is what makes
+the hypothesis shape of {lit}`elim_unique` usable by {lit}`simp` at
+call sites. {lit}`elim_unique` drives its recursion through an explicit
+{name}`WType.rec` application into a {lit}`Prop`-valued motive.
+{lit}`para` is {name}`WType.elim` at the product carrier
+{lit}`WType β × γ`, whose first component reconstructs the subtree;
+its computation rule {lit}`para_mk` does not hold by {name}`rfl` and is
+proved through that reconstruction.
 
 ## References
 
-* [GambinoHyland2004]
-* [Meertens1992]
+* \[GambinoHyland2004\]
+* \[Meertens1992\]
 
 ## Tags
 
@@ -74,8 +80,8 @@ applies the algebra to the children's folds. -/
   rfl
 
 /-- The fold is the unique function satisfying its computation rule.
-With `elim` itself, this is the initiality of `WType β` among algebras
-of the polynomial endofunctor `X ↦ Σ a, β a → X`. -/
+With {name}`WType.elim` itself, this is the initiality of {lit}`WType β`
+among algebras of the polynomial endofunctor {lit}`X ↦ Σ a, β a → X`. -/
 theorem elim_unique {α : Type uA} {β : α → Type uB} {γ : Type uC}
     (fγ : (Σ a : α, β a → γ) → γ) (g : WType β → γ)
     (hg : ∀ (a : α) (f : β a → WType β),
@@ -101,16 +107,17 @@ private theorem paraStep_fst {α : Type uA} {β : α → Type uB} (γ : Type uC)
 
 /-- The paramorphism of a W-type: a fold whose step sees each node's
 children as subtrees together with their folded values. Obtained from
-`elim` at the product carrier `WType β × γ`, whose first component
-reconstructs the subtree, so no new recursion is introduced.
-[Meertens1992] -/
+{name}`WType.elim` at the product carrier {lit}`WType β × γ`, whose
+first component reconstructs the subtree, so no new recursion is
+introduced. \[Meertens1992\] -/
 @[expose] def para {α : Type uA} {β : α → Type uB} (γ : Type uC)
     (fγ : (Σ a : α, β a → WType β × γ) → γ) : WType β → γ :=
   fun w ↦ (elim (WType β × γ) (paraStep γ fγ) w).2
 
 /-- The paramorphism's computation rule: it applies the step to the node's
-children paired with their own paramorphisms. Unlike `elim_mk` this does
-not hold by `rfl`; it is `paraStep_fst` under a `congrArg`. -/
+children paired with their own paramorphisms. Unlike {name}`WType.elim_mk`
+this does not hold by {name}`rfl`; it is {lit}`paraStep_fst` under a
+{name}`congrArg`. -/
 @[simp] theorem para_mk {α : Type uA} {β : α → Type uB} {γ : Type uC}
     (fγ : (Σ a : α, β a → WType β × γ) → γ) (a : α) (f : β a → WType β) :
     para γ fγ (mk a f) = fγ ⟨a, fun b ↦ (f b, para γ fγ (f b))⟩ :=
@@ -118,8 +125,9 @@ not hold by `rfl`; it is `paraStep_fst` under a `congrArg`. -/
     (funext fun b ↦ Prod.ext (paraStep_fst γ fγ (f b)) rfl)
 
 /-- Boolean equality of W-trees: compare the shapes, then compare the
-children pointwise over the finite direction type. A fold by `elim` at
-the carrier `WType β → Bool`, so no recursion is introduced. -/
+children pointwise over the finite direction type. A fold by
+{name}`WType.elim` at the carrier {lit}`WType β → Bool`, so no recursion
+is introduced. -/
 @[expose] def beq {α : Type uA} {β : α → Type uB} [DecidableEq α]
     [∀ a, FinEnum (β a)] : WType β → WType β → Bool :=
   elim (WType β → Bool) fun x t' ↦
@@ -127,7 +135,7 @@ the carrier `WType β → Bool`, so no recursion is introduced. -/
       decide (∀ b : β x.1, x.2 b ((toSigma t').2 (h ▸ b)) = true)
     else false
 
-/-- `beq` unfolded on two constructor applications. -/
+/-- {name}`WType.beq` unfolded on two constructor applications. -/
 theorem beq_mk {α : Type uA} {β : α → Type uB} [DecidableEq α]
     [∀ a, FinEnum (β a)] (a : α) (f : β a → WType β) (a' : α)
     (f' : β a' → WType β) :
@@ -135,7 +143,7 @@ theorem beq_mk {α : Type uA} {β : α → Type uB} [DecidableEq α]
       if h : a = a' then decide (∀ b : β a, beq (f b) (f' (h ▸ b)) = true) else false :=
   rfl
 
-/-- `beq` decides equality of W-trees. -/
+/-- {name}`WType.beq` decides equality of W-trees. -/
 theorem beq_eq_true_iff {α : Type uA} {β : α → Type uB} [DecidableEq α]
     [∀ a, FinEnum (β a)] (s t : WType β) : beq s t = true ↔ s = t :=
   rec (motive := fun s ↦ ∀ t, beq s t = true ↔ s = t)
@@ -155,7 +163,7 @@ theorem beq_eq_true_iff {α : Type uA} {β : α → Type uB} [DecidableEq α]
 
 /-- Equality of W-trees is decidable when shapes have decidable equality
 and every direction type is finitely enumerable. mathlib reaches this
-only through `Encodable`, which additionally requires the shape and
+only through {name}`Encodable`, which additionally requires the shape and
 direction types countable. -/
 instance instDecidableEq {α : Type uA} {β : α → Type uB} [DecidableEq α]
     [∀ a, FinEnum (β a)] : DecidableEq (WType β) :=

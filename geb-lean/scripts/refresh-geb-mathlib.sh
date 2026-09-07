@@ -49,6 +49,7 @@ cat > "$VENDOR/PROVENANCE.md" <<EOF
 - Source commit: $SRC_SHA
 - Back-port patch: scripts/geb-mathlib-backport.patch (sha256 $PATCH_SHA256)
 - Excluded modules: $EXCLUDED_RENDERED. Each is dropped along with its submodules and every import of it; see scripts/refresh-geb-mathlib.sh.
+- \`GebMeta\` is not vendored: every import of it is dropped and each \`{cite}\` docstring role it supplies is rewritten to its escaped bracketed key; see scripts/refresh-geb-mathlib.sh.
 - The files under \`Geb/\` are an unmodified mirror of the source commit except where the back-port patch changes them and where the exclusion above removes them; modified files carry a change notice in their header comment.
 EOF
 
@@ -70,6 +71,18 @@ for mod in "${EXCLUDED_MODULES[@]}"; do
   find "$VENDOR" -name '*.lean' -exec \
     sed -i -E "/^(public )?import ${mod}(\.|\$)/d" {} +
 done
+
+# GebMeta is not vendored (its env_linter would mis-audit geb-lean). It
+# supplies the `{cite}` docstring role, which upstream's literate
+# modules use under `doc.verso`; the pinned toolchain supports every
+# other role such a module writes. Drop each import of GebMeta, in any
+# of the module system's four forms, and rewrite each `{cite}` span to
+# the escaped bracketed key, `\[Key\]`, the `doc.verso` spelling of
+# mathlib's bare `[Key]` citation form. See
+# docs/geb-mathlib-backport-notes.md § 1.
+find "$VENDOR" -name '*.lean' -exec sed -i -E \
+  -e '/^(public[[:space:]]+)?(meta[[:space:]]+)?import[[:space:]]+GebMeta([[:space:]]|$)/d' \
+  -e 's/[{]cite[}]`([^`]*)`/\\[\1\\]/g' {} +
 
 # A refresh that changes no vendored content (an upstream revision
 # touching none of the mirrored files) leaves at most PROVENANCE.md

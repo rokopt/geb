@@ -2485,23 +2485,3 @@ index 03de8f0..5917140 100644
              parseChildren_print _ (List.ofFn ch) (g + 1) rest hchild hfuel,
              Option.map_some, Rose.ofList_ofFn]) r
  
-diff --git a/vendor/geb-mathlib/Geb.lean b/vendor/geb-mathlib/Geb.lean
-index a1b5d12..0a5b56a 100644
---- a/vendor/geb-mathlib/Geb.lean
-+++ b/vendor/geb-mathlib/Geb.lean
-@@ -3,14 +3,13 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
- Released under Apache 2.0 license as described in the file LICENSE.
- Authors: Terence Rokop
- -/
-+-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
- module -- shake: keep-all, shake: keep-downstream
- 
- public import Geb.Cslib
- public import Geb.Prototypes
- public import Geb.Mathlib
- 
--import GebMeta
--
- /-!
- # Geb root module
- 
