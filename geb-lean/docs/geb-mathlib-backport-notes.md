@@ -51,12 +51,17 @@ genuinely new (decide the adaptation, add a category here).
   index or a literate module. The pinned toolchain accepts `doc.verso`
   and the `{name}`, `{lit}`, and `{option}` roles; only `{cite}` is
   unknown to it, and a bare `[Key]` under `doc.verso` is a link-syntax
-  error.
+  error. A `{name}` role naming a `GebMeta` declaration, as
+  `Prototypes/LargeIR/Grothendieck.lean`'s module docstring does with
+  `GebMeta.classicalAllowedModules`, reports `Unknown constant`: the
+  role resolves the constant it names, and the constant is absent.
 - Adaptation: `scripts/refresh-geb-mathlib.sh` deletes every import of
-  `GebMeta`, in any of the module system's four import forms, and
-  rewrites each ``{cite}`Key` `` span to `\[Key\]`, the `doc.verso`
-  spelling of mathlib's bare `[Key]` citation form (the conversion
-  upstream's `scripts/extract-pr.sh` applies at extraction). The pass
+  `GebMeta`, in any of the module system's four import forms; rewrites
+  each ``{cite}`Key` `` span to `\[Key\]`, the `doc.verso` spelling of
+  mathlib's bare `[Key]` citation form (the conversion upstream's
+  `scripts/extract-pr.sh` applies at extraction); and rewrites each
+  ``{name}`GebMeta.Decl` `` span to ``{lit}`GebMeta.Decl` ``, which
+  renders the same text without resolving it. The pass
   runs after `git apply`, as module exclusion does, so no patch hunk is
   involved and a newly-ingested literate module needs no patch
   extension. `PROVENANCE.md` records the pass.
@@ -121,8 +126,12 @@ genuinely new (decide the adaptation, add a category here).
   coercion layer exist.
 - v4.29 symptom: `Unknown identifier 'ConcreteCategory.hom'` /
   `'ConcreteCategory.comp_apply'` / `'ConcreteCategory.hom_ext'` /
-  `'ConcreteCategory.hom_ofHom'` / `'TypeCat.Fun.toFun_apply'`, or
-  `Unknown constant 'CategoryTheory.NatTrans.naturality_apply'`.
+  `'ConcreteCategory.hom_ofHom'` / `'TypeCat.Fun.toFun_apply'` /
+  `'TypeCat.ofHom'`, or
+  `Unknown constant 'CategoryTheory.NatTrans.naturality_apply'`, or
+  `cannot coerce to function` on an explicit `⇑` applied to a
+  `Type`-category morphism, followed by cascading type mismatches in
+  each declaration mentioning the one that failed.
 - Adaptation in `Slice/Functor.lean`: drop the `ConcreteCategory.hom`
   wrapper (and its two docstring mentions); rewrite the `over_hom_comp`
   proof to `exact congrFun (Over.w g) z`.
@@ -176,6 +185,18 @@ genuinely new (decide the adaptation, add a category here).
   (`fiberPresheafIso`): the naturality component is
   `ConcreteCategory.hom_ext _ _ fun x => by ...`. Replace
   `ConcreteCategory.hom_ext _ _` with `funext`.
+- Adaptation in `Prototypes/LargeIR/Basic.lean` (`ofSliceHom`) and
+  `Prototypes/LargeIR/Morphism.lean` (`arrowHom`): the naturality
+  square's nontrivial case is closed by
+  `congrArg TypeCat.ofHom hh.symm` (respectively `w.symm`), transporting
+  the function equation across the coercion layer. Drop the
+  `congrArg TypeCat.ofHom`; in v4.29 the equation of morphisms is the
+  function equation.
+- Adaptation in `Prototypes/LargeIR/Grothendieck.lean`: `famFib` passes
+  the index map to `Pi.comap` as `⇑h.unop`, and `homGrEquiv` reads a
+  morphism's components back as `⇑(CoGrothendieck.homBase f)` and
+  `⇑(CoGrothendieck.homFiber f u)`. Drop the three `⇑` coercions; in
+  v4.29 each morphism is the function.
 
 ### 4. Eliminator motive or functional argument left as an unreduced beta-redex
 
@@ -345,8 +366,9 @@ genuinely new (decide the adaptation, add a category here).
 - v4.29 symptom: ``Unknown identifier `ite_eq_right` `` (and the three
   others), followed by `unsolved goals` wherever the failed `rw` left
   the goal standing. The affected modules are `Prototypes/CanonicalSExpr.lean`,
-  `Prototypes/ConcreteSyntax.lean`, `Prototypes/ReadableSExpr.lean`,
-  `CategoryTheory/FinCat/Basic.lean`, `CategoryTheory/FinCat/Hom.lean`,
+  `Prototypes/ConcreteSyntax.lean`, `Prototypes/LargeIR/General.lean`,
+  `Prototypes/ReadableSExpr.lean`, `CategoryTheory/FinCat/Basic.lean`,
+  `CategoryTheory/FinCat/Hom.lean`,
   `Computability/BellantoniCook/Tree.lean`,
   `Computability/Cobham/RankedTree.lean`,
   `Computability/Cobham/Tree.lean`, `Data/Tree/Ranked/Code.lean`,
@@ -395,15 +417,26 @@ genuinely new (decide the adaptation, add a category here).
   `Prototypes/Computability/CobhamFoldProto/Degenerate.lean` defines the
   terminal carrier's encoding, decoding, and algebra — `encUnit`,
   `decUnit`, and `algUnit` — as constant functions, each ignoring an
-  argument its type obliges it to take.
+  argument its type obliges it to take. Constant functions of the same
+  kind are `oneFam` and `counterFam` in
+  `Prototypes/FinCardUniverse/Value.lean`, `jUnitBool` and `pUnit` in
+  `Prototypes/ParanaturalRank.lean`, and `univR` in
+  `Prototypes/PresheafIRUniv/Basic.lean`.
 - v4.29 symptom: under `lake lint -- Geb`, the `unusedArguments`
   env-linter reports `Geb.CobhamFold.encUnit argument 1`,
-  `Geb.CobhamFold.decUnit argument 1`, and
-  `Geb.CobhamFold.algUnit argument 3`. The declarations are unchanged
-  from upstream; the report is v4.29's linter.
+  `Geb.CobhamFold.decUnit argument 1`,
+  `Geb.CobhamFold.algUnit argument 3`, and the corresponding report for
+  each of the other five. The declarations are unchanged from upstream;
+  the report is v4.29's linter.
 - Adaptation: insert `@[nolint unusedArguments]` between each
   declaration's docstring and its `def` keyword, as category 2 does for
-  `checkUnivs`.
+  `checkUnivs`. `Prototypes/ParanaturalRank.lean` imports nothing, so
+  the attribute is out of scope there: add
+  `public import Batteries.Tactic.Lint` to its import block. The
+  umbrella is needed rather than `Batteries.Tactic.Lint.Basic`, which
+  declares the attribute: the attribute checks that the linter it names
+  exists, and `unusedArguments` is declared in
+  `Batteries.Tactic.Lint.Misc`.
 
 ### 14. Declaration reached upstream through a wider import closure
 

@@ -1585,7 +1585,7 @@ index 7b84564..2aa7b87 100644
  /-- The incomplete block never fills, whether or not the scan has failed.
  Stated unconditionally, which is the form a bitstring layout of the state
 diff --git a/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean b/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean
-index 9ea86d0..9f472c3 100644
+index f158cee..77ee723 100644
 --- a/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean
 +++ b/vendor/geb-mathlib/Geb/Mathlib/Data/W/Basic.lean
 @@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
@@ -1596,7 +1596,7 @@ index 9ea86d0..9f472c3 100644
  module
  
  public import Mathlib.Data.W.Basic
-@@ -144,11 +145,11 @@ theorem beq_eq_true_iff {α : Type uA} {β : α → Type uB} [DecidableEq α]
+@@ -153,11 +154,11 @@ theorem beq_eq_true_iff {α : Type uA} {β : α → Type uB} [DecidableEq α]
          match ‹DecidableEq α› a a' with
          | isTrue h => by
              subst h
@@ -2333,6 +2333,166 @@ index d9ca6f8..7c0966a 100644
          rw [ihl f _ hl]
          -- reduce the match on the `some` just produced, exposing the second child
          simp only []
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/FinCardUniverse/Value.lean b/vendor/geb-mathlib/Geb/Prototypes/FinCardUniverse/Value.lean
+index 6474159..ab77451 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/FinCardUniverse/Value.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/FinCardUniverse/Value.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Prototypes.FinCardUniverse.Basic
+@@ -123,7 +124,7 @@ def arityHomEquiv (former : Former) (a : Shp former) (U : Type) (d : U → Card)
+ /-! ## A code with no inductive-recursive counterpart -/
+ 
+ /-- The family with one code, denoting the singleton. -/
+-def oneFam : Unit → Card := fun _ ↦ ⟨1⟩
++@[nolint unusedArguments] def oneFam : Unit → Card := fun _ ↦ ⟨1⟩
+ 
+ /-- The binder code declaring the empty object as the object it binds. -/
+ def emptyBindCode : Code := .bind ⟨0⟩ (fun i ↦ i.elim0)
+@@ -164,7 +165,7 @@ morphisms: reindexing the family along a morphism of the bound object must act
+ covariantly on the former's output. -/
+ 
+ /-- The family of the counterexample: the singleton indexes the empty object. -/
+-def counterFam : El ⟨1⟩ → Card := fun _ ↦ ⟨0⟩
++@[nolint unusedArguments] def counterFam : El ⟨1⟩ → Card := fun _ ↦ ⟨0⟩
+ 
+ /-- The morphism of the counterexample: the unique map from the empty object to
+ the singleton. -/
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Basic.lean b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Basic.lean
+index e486514..69ea92c 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Basic.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Basic.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Prototypes.PresheafIRUniv.Basic
+@@ -567,7 +568,7 @@ def ofSliceHom {E E' : Type} {p : E → X} {p' : E' → X} (h : E → E') (hh :
+     match o, o', f with
+     | ⟨0⟩, ⟨0⟩, _ => rfl
+     | ⟨1⟩, ⟨1⟩, _ => rfl
+-    | ⟨1⟩, ⟨0⟩, _ => congrArg TypeCat.ofHom hh.symm
++    | ⟨1⟩, ⟨0⟩, _ => hh.symm
+     | ⟨0⟩, ⟨1⟩, f => absurd (leOfHom f.unop) (by decide)
+ 
+ /-- An element of {lit}`E` as an element of the pullback of {lit}`ofSlice p`
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/General.lean b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/General.lean
+index 62d9e01..661c6e9 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/General.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/General.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Prototypes.LargeIR.Code
+@@ -144,13 +145,13 @@ def assign {a : F.A} (g : F.Direction a 0 → Z.obj ⟨0⟩)
+ theorem assign_zero {a : F.A} (g : F.Direction a 0 → Z.obj ⟨0⟩)
+     (w : ∀ d : F.Direction a 1, (famOfPsh Z).2 (g (dirRestr F a d))) {b : F.B a}
+     (h : F.r ⟨a, b⟩ = 0) : assign F Z g w b = ⟨0, g ⟨b, h⟩⟩ :=
+-  dite_eq_left h
++  dif_pos h
+ 
+ /-- The raw assignment at a direction over {lit}`1`. -/
+ theorem assign_one {a : F.A} (g : F.Direction a 0 → Z.obj ⟨0⟩)
+     (w : ∀ d : F.Direction a 1, (famOfPsh Z).2 (g (dirRestr F a d))) {b : F.B a}
+     (h : F.r ⟨a, b⟩ = 1) : assign F Z g w b = ⟨1, (w ⟨b, h⟩).1⟩ :=
+-  dite_eq_right fun h' ↦ Fin.zero_ne_one (h'.symm.trans h)
++  dif_neg fun h' ↦ Fin.zero_ne_one (h'.symm.trans h)
+ 
+ /-- The raw assignment is compatible with the direction-input map. -/
+ theorem assign_compatible {a : F.A} (g : F.Direction a 0 → Z.obj ⟨0⟩)
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Grothendieck.lean b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Grothendieck.lean
+index e7772a4..7ce647e 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Grothendieck.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Grothendieck.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Prototypes.LargeIR.Morphism
+@@ -70,7 +71,7 @@ namespace GebProto.LargeIR
+ families over it and a map of index types to precomposition. -/
+ def famFib : Typeᵒᵖ ⥤ Cat.{0, 1} where
+   obj U := Cat.of (U.unop → Type)
+-  map h := (Pi.comap (fun _ ↦ Type) (⇑h.unop)).toCatHom
++  map h := (Pi.comap (fun _ ↦ Type) h.unop).toCatHom
+   map_id _ := rfl
+   map_comp _ _ := rfl
+ 
+@@ -98,7 +99,7 @@ def objGrEquiv : FreeCoprodCompDisc.{0, 1} Type ≃ FamGr where
+ map with a fibre morphism into the precomposed family. -/
+ def homGrEquiv (F G : FreeCoprodCompDisc.{0, 1} Type) : FamHom F G ≃ (toGr F ⟶ toGr G) where
+   toFun φ := CoGrothendieck.homMk (↾ φ.1) fun u ↦ ↾ φ.2 u
+-  invFun f := ⟨⇑(CoGrothendieck.homBase f), fun u ↦ ⇑(CoGrothendieck.homFiber f u)⟩
++  invFun f := ⟨CoGrothendieck.homBase f, fun u ↦ CoGrothendieck.homFiber f u⟩
+   left_inv _ := rfl
+   right_inv _ := rfl
+ 
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Morphism.lean b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Morphism.lean
+index df6ab16..eea46d7 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Morphism.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/LargeIR/Morphism.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Prototypes.LargeIR.Code
+@@ -153,7 +154,7 @@ def arrowHom {A A' B B' : Type} {p : B → A} {p' : B' → A'} (h₀ : A → A')
+     match o, o', f with
+     | ⟨0⟩, ⟨0⟩, _ => rfl
+     | ⟨1⟩, ⟨1⟩, _ => rfl
+-    | ⟨1⟩, ⟨0⟩, _ => congrArg TypeCat.ofHom w.symm
++    | ⟨1⟩, ⟨0⟩, _ => w.symm
+     | ⟨0⟩, ⟨1⟩, f => absurd (leOfHom f.unop) (by decide)
+ 
+ /-- A morphism of families as a morphism of the walking-arrow presheaves of
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/ParanaturalRank.lean b/vendor/geb-mathlib/Geb/Prototypes/ParanaturalRank.lean
+index b7fed2b..1d524db 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/ParanaturalRank.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/ParanaturalRank.lean
+@@ -3,8 +3,11 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
++public import Batteries.Tactic.Lint
++
+ /-!
+ # Prototype: where strong dinaturality and parametricity part
+ 
+@@ -117,11 +120,11 @@ twisted hypothesis has a single instance and it holds; the identity pair, which
+ `j` intertwines, is outside its range and refutes the other. -/
+ 
+ /-- The map picking out `true`. -/
+-def jUnitBool : Unit → Bool :=
++@[nolint unusedArguments] def jUnitBool : Unit → Bool :=
+   fun _ ↦ true
+ 
+ /-- The only element of `(Unit → Unit) → Unit`. -/
+-def pUnit : (Unit → Unit) → Unit :=
++@[nolint unusedArguments] def pUnit : (Unit → Unit) → Unit :=
+   fun _ ↦ ()
+ 
+ /-- Evaluation at `false`, which separates the identity from the constant map at
 diff --git a/vendor/geb-mathlib/Geb/Prototypes/PresheafIRProto/Basic.lean b/vendor/geb-mathlib/Geb/Prototypes/PresheafIRProto/Basic.lean
 index b4e0cc6..cbb2cdf 100644
 --- a/vendor/geb-mathlib/Geb/Prototypes/PresheafIRProto/Basic.lean
@@ -2410,6 +2570,27 @@ index 4662a0e..daf6edc 100644
    left_inv _ := rfl
    right_inv _ := rfl
  
+diff --git a/vendor/geb-mathlib/Geb/Prototypes/PresheafIRUniv/Basic.lean b/vendor/geb-mathlib/Geb/Prototypes/PresheafIRUniv/Basic.lean
+index 61de149..36f5865 100644
+--- a/vendor/geb-mathlib/Geb/Prototypes/PresheafIRUniv/Basic.lean
++++ b/vendor/geb-mathlib/Geb/Prototypes/PresheafIRUniv/Basic.lean
+@@ -3,6 +3,7 @@ Copyright (c) 2026 Terence Rokop. All rights reserved.
+ Released under Apache 2.0 license as described in the file LICENSE.
+ Authors: Terence Rokop
+ -/
++-- Modified from geb-mathlib by scripts/geb-mathlib-backport.patch.
+ module
+ 
+ public import Geb.Mathlib.Data.PFunctor.Presheaf.W
+@@ -152,7 +153,7 @@ def univDir (K : Type uK) : univShape K → Type 0
+ 
+ /-- The direction-input map: every direction lies over the code fibre `0`,
+ so the recursion of the W-type runs through the codes. -/
+-def univR (K : Type uK) : (Σ a : univShape K, univDir K a) → Fin 2 :=
++@[nolint unusedArguments] def univR (K : Type uK) : (Σ a : univShape K, univDir K a) → Fin 2 :=
+   fun _ => 0
+ 
+ /-- The shape-output map: `iota`, `sigma`, and `pi` are codes (fibre `0`);
 diff --git a/vendor/geb-mathlib/Geb/Prototypes/ReadableSExpr.lean b/vendor/geb-mathlib/Geb/Prototypes/ReadableSExpr.lean
 index 03de8f0..5917140 100644
 --- a/vendor/geb-mathlib/Geb/Prototypes/ReadableSExpr.lean
